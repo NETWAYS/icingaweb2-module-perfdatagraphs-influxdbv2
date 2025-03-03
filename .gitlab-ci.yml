@@ -1,0 +1,11 @@
+---
+include:
+  - project: 'nps/icingaweb2-modules/pipelines'
+    ref: main
+    file: templates.yml
+
+phplint:
+  extends: .phplint
+
+phpcs:
+  extends: .phpcs

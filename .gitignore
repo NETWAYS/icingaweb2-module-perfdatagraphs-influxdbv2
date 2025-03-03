@@ -1,0 +1,19 @@
+# Exclude editor files
+.*.sw[op]
+*~
+/.idea/
+\#*
+.\#*
+*TODO*
+!.git*
+
+# Artifacts from vendor parts in testing
+_icingaweb2/
+_libraries/
+.phpunit.cache/
+.phplint.cache/
+reports/
+/*.phar
+/Icinga
+/Zend
+/vendor
