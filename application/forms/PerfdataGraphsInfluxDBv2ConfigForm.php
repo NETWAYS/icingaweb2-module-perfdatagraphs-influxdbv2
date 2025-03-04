@@ -37,7 +37,7 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'label' => 'Influx-API Bucket'
         ]);
 
-        $this->addElement('text', 'influx_api_token', [
+        $this->addElement('password', 'influx_api_token', [
             'description' => t('InfluxDB-API Token'),
             'label' => 'Influx-API Token'
         ]);
