@@ -39,7 +39,8 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
 
         $this->addElement('password', 'influx_api_token', [
             'description' => t('InfluxDB-API Token'),
-            'label' => 'Influx-API Token'
+            'label' => 'Influx-API Token',
+            'renderPassword' => true,
         ]);
 
         $this->addElement('number', 'influx_api_timeout', [
