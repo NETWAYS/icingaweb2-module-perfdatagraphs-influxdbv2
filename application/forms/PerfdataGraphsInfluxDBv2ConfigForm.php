@@ -23,29 +23,33 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
     public function createElements(array $formData)
     {
         $this->addElement('text', 'influx_api_url', [
-            'description' => t('InfluxDB-API URL'),
-            'label' => 'Influx-API URL'
+            'label' => t('InfluxDB API URL'),
+            'description' => t('The URL for InfluxDB including the scheme'),
+            'required' => true
         ]);
 
         $this->addElement('text', 'influx_api_org', [
-            'description' => t('InfluxDB-API Org'),
-            'label' => 'Influx-API Org'
+            'label' => t('InfluxDB organization'),
+            'description' => t('The organization for the bucket'),
+            'required' => true
         ]);
 
         $this->addElement('text', 'influx_api_bucket', [
-            'description' => t('InfluxDB-API Bucket'),
-            'label' => 'Influx-API Bucket'
+            'label' => t('InfluxDB Bucket'),
+            'description' => t('the bucket for the performance data'),
+            'required' => true
         ]);
 
         $this->addElement('password', 'influx_api_token', [
-            'description' => t('InfluxDB-API Token'),
-            'label' => 'Influx-API Token',
+            'label' => t('InfluxDB API Token'),
+            'description' => t('Token for the authentication'),
             'renderPassword' => true,
         ]);
 
         $this->addElement('number', 'influx_api_timeout', [
-            'description' => t('Influx-API timeout in seconds'),
-            'label' => 'Influx-API timeout in seconds'
+            'label' => t('HTTP timeout in seconds'),
+            'description' => t('HTTP timeout for the API in seconds'),
+            'renderPassword' => true,
         ]);
 
         $this->addElement('checkbox', 'influx_api_tls_insecure', [
@@ -66,7 +70,7 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             [
                 'ignore' => true,
                 'label' => $this->translate('Validate Configuration'),
-                'data-progress-label' => $this->translate('Validation In Progress'),
+                'data-progress-label' => $this->translate('Validation in Progress'),
                 'decorators' => ['ViewHelper']
             ]
         );
