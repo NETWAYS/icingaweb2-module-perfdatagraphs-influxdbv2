@@ -54,6 +54,7 @@ class Transformer
         $pfr = new PerfdataResponse();
 
         if (empty($response)) {
+            Logger::warning('Did not receive data in response');
             return $pfr;
         }
 

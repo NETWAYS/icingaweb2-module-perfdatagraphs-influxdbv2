@@ -87,6 +87,8 @@ class Influx
             ],
         ];
 
+        Logger::debug('Calling findMetric API with query: %s', $q);
+
         $response = $this->client->request('POST', $this::QUERY_ENDPOINT, $query);
 
         return $response;
@@ -176,6 +178,7 @@ class Influx
         // Try to load the configuration
         if ($moduleConfig === null) {
             try {
+                Logger::debug('Loaded Perfdata Graphs InfluxDBv2 module configuration to get Config');
                 $moduleConfig = Config::module('perfdatagraphsinfluxdbv2');
             } catch (Exception $e) {
                 Logger::error('Failed to load Perfdata Graphs InfluxDBv2 module configuration: %s', $e);
