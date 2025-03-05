@@ -20,7 +20,7 @@ use Exception;
 class Influx
 {
     protected const BUCKET_ENDPOINT = '/api/v2/buckets';
-    protected const QUERY_ENDPOINT = '/query';
+    protected const QUERY_ENDPOINT = '/api/v2/query';
 
     /** @var $this \Icinga\Application\Modules\Module */
     protected $client = null;
@@ -56,29 +56,34 @@ class Influx
         bool $isHostCheck,
     ): Response {
 
-        $selector = sprintf("hostname = '%s'", $hostName);
-
+        $q = sprintf('from(bucket: "%s")', $this->bucket);
+        $q .= sprintf('|> range(start: %s)', $from);
+        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
+        $q .= sprintf('|> filter(fn: (r) => r["hostname"] == "%s")', $hostName);
         if (!$isHostCheck) {
-            $selector .= sprintf(" AND service = '%s'", $serviceName);
+            $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
         }
-
-        $q = sprintf(
-            "SELECT value FROM \"%s\" WHERE (%s) AND time >= %ds AND time <= now() GROUP BY metric",
-            $checkCommand,
-            $selector,
-            $from,
-        );
+        $q .= sprintf('|> filter(fn: (r) => r["_field"] == "%s")', 'value');
 
         $query = [
             'stream' => true,
             'headers' => [
                 'Authorization' => 'Token ' . $this->token,
+                'Content-Type' => 'application/json',
                 'Accept' => 'application/csv',
             ],
             'query' => [
-                'db' => $this->bucket,
-                'q' => $q,
-                'epoch' => 's'
+                'org' => $this->org,
+            ],
+            'json' => [
+                'query' => $q,
+                'type' => 'flux',
+                'dialect' => [
+                    'header' => true,
+                    'delimiter' => ',',
+                    'annotations' => ['datatype', 'group', 'default'],
+                    'commentPrefix' => '#'
+                ]
             ],
         ];
 

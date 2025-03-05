@@ -2,6 +2,8 @@
 
 namespace Icinga\Module\Perfdatagraphsinfluxdbv2\Client;
 
+use Icinga\Module\Perfdatagraphsinfluxdbv2\Vendor\FluxCsvParser;
+
 use Icinga\Module\Perfdatagraphs\Model\PerfdataResponse;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSet;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSeries;
@@ -55,15 +57,14 @@ class Transformer
             return $pfr;
         }
 
-        $stream = new InfluxCsvParser($response->getBody(), true);
-
+        $stream = new FluxCsvParser($response->getBody(), true);
 
         $timestamps = [];
         // Create PerfdataSeries and add to PerfdataSet
         $valueseries = [];
 
         foreach ($stream->each() as $record) {
-            $metricname = $record->getMetricName();
+            $metricname = $record['metric'];
 
             if (!self::isIncluded($metricname, $includeMetrics)) {
                 continue;
@@ -81,8 +82,11 @@ class Transformer
                 $timestamps[$metricname] = [];
             }
 
-            $timestamps[$metricname][] = $record->getTimestamp();
-            $valueseries[$metricname][] = $value = $record->getValue();
+            $ts = strtotime($record->getTime());
+            $value = $record->getValue();
+
+            $timestamps[$metricname][] = $ts;
+            $valueseries[$metricname][] = isset($value) ? $value : null;
         }
 
         // Add it to the PerfdataResponse
