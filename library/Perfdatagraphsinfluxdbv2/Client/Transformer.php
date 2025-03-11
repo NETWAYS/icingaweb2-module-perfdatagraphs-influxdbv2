@@ -36,7 +36,12 @@ class Transformer
             return false;
         }
 
-        return in_array($metricname, $excludeMetrics);
+        foreach ($excludeMetrics as $pattern) {
+            if (fnmatch($pattern, $metricname)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
