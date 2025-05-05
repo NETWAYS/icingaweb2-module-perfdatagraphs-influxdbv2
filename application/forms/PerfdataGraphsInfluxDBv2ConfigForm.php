@@ -49,7 +49,6 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         $this->addElement('number', 'influx_api_timeout', [
             'label' => t('HTTP timeout in seconds'),
             'description' => t('HTTP timeout for the API in seconds. Should be higher than 0'),
-            'renderPassword' => true,
         ]);
 
         $this->addElement('checkbox', 'influx_api_tls_insecure', [
