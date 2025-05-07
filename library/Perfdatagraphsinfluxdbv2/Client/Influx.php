@@ -63,7 +63,8 @@ class Influx
         if (!$isHostCheck) {
             $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
         }
-        $q .= sprintf('|> filter(fn: (r) => r["_field"] == "%s")', 'value');
+
+        $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value")';
 
         $query = [
             'stream' => true,
