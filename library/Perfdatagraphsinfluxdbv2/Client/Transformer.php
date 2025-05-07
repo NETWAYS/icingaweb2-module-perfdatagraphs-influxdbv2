@@ -70,6 +70,7 @@ class Transformer
         $valueseries = [];
         $warningseries = [];
         $criticalseries = [];
+        $unit = '';
 
         foreach ($stream->each() as $record) {
             $metricname = $record['metric'];
@@ -80,6 +81,10 @@ class Transformer
 
             if (self::isExcluded($metricname, $excludeMetrics)) {
                 continue;
+            }
+
+            if ($record->getField() === 'unit' && empty($unit)) {
+                $unit = $record->getValue();
             }
 
             if ($record->getField() === 'warn') {
@@ -114,7 +119,7 @@ class Transformer
 
         // Add it to the PerfdataResponse
         foreach (array_keys($valueseries) as $metric) {
-            $s = new PerfdataSet($metric);
+            $s = new PerfdataSet($metric, $unit);
 
             $s->setTimestamps($timestamps[$metric]);
 

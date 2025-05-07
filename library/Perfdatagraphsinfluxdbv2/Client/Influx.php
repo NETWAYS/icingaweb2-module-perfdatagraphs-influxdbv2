@@ -64,7 +64,7 @@ class Influx
             $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
         }
 
-        $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value")';
+        $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value" or r["_field"] == "unit")';
 
         $query = [
             'stream' => true,
