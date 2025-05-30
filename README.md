@@ -8,6 +8,11 @@ This module requires the frontend module:
 
 - https://github.com/NETWAYS/icingaweb2-module-perfdatagraphs
 
+## Installation Requirements
+
+* PHP version ≥ 8.0
+* IcingaDB or IDO Database
+
 ## Known Issues
 
 ### Time range buttons do not adjust when no data is available
