@@ -25,7 +25,8 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         $this->addElement('text', 'influx_api_url', [
             'label' => t('InfluxDB API URL'),
             'description' => t('The URL for InfluxDB including the scheme'),
-            'required' => true
+            'required' => true,
+            'placeholder' => 'http://localhost:8086',
         ]);
 
         $this->addElement('text', 'influx_api_org', [
@@ -49,6 +50,7 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         $this->addElement('number', 'influx_api_timeout', [
             'label' => t('HTTP timeout in seconds'),
             'description' => t('HTTP timeout for the API in seconds. Should be higher than 0'),
+            'placeholder' => 10,
         ]);
 
         $this->addElement('checkbox', 'influx_api_tls_insecure', [
