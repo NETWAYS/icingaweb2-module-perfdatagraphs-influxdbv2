@@ -25,6 +25,7 @@ class Influx
     /** @var $this \Icinga\Application\Modules\Module */
     protected $client = null;
 
+    protected string $URL;
     protected string $org;
     protected string $bucket;
     protected string $token;
@@ -38,10 +39,11 @@ class Influx
         bool $tlsVerify = true
     ) {
         $this->client = new Client([
-            'base_uri' => $baseURI,
             'timeout' => $timeout,
             'verify' => $tlsVerify
         ]);
+
+        $this->URL = rtrim($baseURI, '/');
 
         $this->org = $org;
         $this->bucket = $bucket;
@@ -88,9 +90,11 @@ class Influx
             ],
         ];
 
-        Logger::debug('Calling findMetric API with query: %s', $q);
+        $url = $this->URL . $this::QUERY_ENDPOINT;
 
-        $response = $this->client->request('POST', $this::QUERY_ENDPOINT, $query);
+        Logger::debug('Calling query API at %s with query: %s', $url, $query);
+
+        $response = $this->client->request('POST', $url, $query);
 
         return $response;
     }
@@ -113,12 +117,10 @@ class Influx
             ]
         ];
 
+        $url = $this->URL . $this::BUCKET_ENDPOINT;
+
         try {
-            $response = $this->client->request(
-                'GET',
-                $this::BUCKET_ENDPOINT,
-                $query,
-            );
+            $response = $this->client->request('GET', $url, $query);
 
             return ['output' =>  $response->getBody()->getContents()];
         } catch (ConnectException $e) {
