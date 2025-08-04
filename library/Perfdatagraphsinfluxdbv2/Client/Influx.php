@@ -194,7 +194,8 @@ class Influx
         $org = $moduleConfig->get('influx', 'api_org', $default['api_org']);
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $token = $moduleConfig->get('influx', 'api_token', $default['api_token']);
-        $tlsVerify = (bool) $moduleConfig->get('influx', 'api_tls_insecure', $default['api_tls_insecure']);
+        // Hint: We use a "skip TLS" logic in the UI, but Guzzle uses "verify TLS"
+        $tlsVerify = !(bool) $moduleConfig->get('influx', 'api_tls_insecure', $default['api_tls_insecure']);
 
         return new static($baseURI, $org, $bucket, $token, $timeout, $tlsVerify);
     }
