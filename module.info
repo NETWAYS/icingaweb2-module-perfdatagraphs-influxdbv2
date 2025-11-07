@@ -1,5 +1,5 @@
 Name: PerfdataGraphs InfluxDBv2 Backend
-Version: 0.1.2
+Version: 0.1.3
 Requires:
   Modules: perfdatagraphs
 Description: InfluxDBv2 Backend for Icinga Web Performance Data Graphs
