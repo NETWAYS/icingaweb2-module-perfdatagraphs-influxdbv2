@@ -65,13 +65,6 @@ class Transformer
 
         $stream = new FluxCsvParser($response->getBody(), true);
 
-        $timestamps = [];
-        // Create PerfdataSeries and add to PerfdataSet
-        $valueseries = [];
-        $warningseries = [];
-        $criticalseries = [];
-        $unit = '';
-
         foreach ($stream->each() as $record) {
             $metricname = $record['metric'];
 
@@ -83,63 +76,68 @@ class Transformer
                 continue;
             }
 
+            $unit = '';
             if ($record->getField() === 'unit' && empty($unit)) {
                 $unit = $record->getValue();
             }
 
-            if ($record->getField() === 'warn') {
-                if (!isset($warningseries[$metricname])) {
-                    $warningseries[$metricname] = [];
-                }
-                $warningseries[$metricname][] = $record->getValue();
-            };
+            // Check if we know this metricname already
+            $dataset = $pfr->getDataset($metricname);
+            $isNewDataset = false;
 
-            if ($record->getField() === 'crit') {
-                if (!isset($criticalseries[$metricname])) {
-                    $criticalseries[$metricname] = [];
-                }
-                $criticalseries[$metricname][] = $record->getValue();
-            };
+            if ($dataset === null) {
+                $isNewDataset = true;
+                // If not, create a new one
+                $dataset = new PerfdataSet($metricname, $unit);
+            }
+
+            $dataset->addTimestamp(strtotime($record->getTime()));
+
+            // Check if got a series for value, warning, critical
+            $series = $dataset->getSeries();
+
+            // Handle the value column
+            $hasValueSeries = array_key_exists('value', $series);
 
             if ($record->getField() === 'value') {
-                if (!isset($valueseries[$metricname])) {
-                    $valueseries[$metricname] = [];
-                };
-
-                if (!isset($timestamps[$metricname])) {
-                    $timestamps[$metricname] = [];
+                if ($hasValueSeries) {
+                    $series['value']->addValue($record->getValue());
+                } else {
+                    $values = new PerfdataSeries('value');
+                    $values->addValue($record->getValue());
+                    $dataset->addSeries($values);
                 }
-                $ts = strtotime($record->getTime());
-                $value = $record->getValue();
-
-                $timestamps[$metricname][] = $ts;
-                $valueseries[$metricname][] = isset($value) ? $value : null;
-            }
-        }
-
-        // Add it to the PerfdataResponse
-        // TODO: We could probably do this in the previous loop
-        foreach (array_keys($valueseries) as $metric) {
-            $s = new PerfdataSet($metric, $unit);
-
-            $s->setTimestamps($timestamps[$metric]);
-
-            if (array_key_exists($metric, $valueseries)) {
-                $values = new PerfdataSeries('value', $valueseries[$metric]);
-                $s->addSeries($values);
             }
 
-            if (array_key_exists($metric, $warningseries) && !empty($warningseries)) {
-                $warnings = new PerfdataSeries('warning', $warningseries[$metric]);
-                $s->addSeries($warnings);
+            // Handle the warning column
+            $hasWarningSeries = array_key_exists('warning', $series);
+
+            if ($record->getField() === 'warn') {
+                if ($hasWarningSeries) {
+                    $series['warning']->addValue($record->getValue());
+                } else {
+                    $warnings = new PerfdataSeries('warning');
+                    $warnings->addValue($record->getValue());
+                    $dataset->addSeries($warnings);
+                }
             }
 
-            if (array_key_exists($metric, $criticalseries) && !empty($criticalseries)) {
-                $criticals = new PerfdataSeries('critical', $criticalseries[$metric]);
-                $s->addSeries($criticals);
+            // Handle the warning column
+            $hasCriticalSeries = array_key_exists('critical', $series);
+
+            if ($record->getField() === 'crit') {
+                if ($hasCriticalSeries) {
+                    $series['critical']->addValue($record->getValue());
+                } else {
+                    $criticals = new PerfdataSeries('critical');
+                    $criticals->addValue($record->getValue());
+                    $dataset->addSeries($criticals);
+                }
             }
 
-            $pfr->addDataset($s);
+            if ($isNewDataset) {
+                $pfr->addDataset($dataset);
+            }
         }
 
         return $pfr;
