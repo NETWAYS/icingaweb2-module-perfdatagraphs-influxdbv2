@@ -58,15 +58,25 @@ class Influx
         bool $isHostCheck,
     ): Response {
 
-        $q = sprintf('from(bucket: "%s")', $this->bucket);
-        $q .= sprintf('|> range(start: %s)', $from);
-        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
-        $q .= sprintf('|> filter(fn: (r) => r["hostname"] == "%s")', $hostName);
-        if (!$isHostCheck) {
-            $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
-        }
+        $q = sprintf('baseData = () => from(bucket: "%s")
+               |> range(start: %s)
+               |> filter(fn: (r) => r._measurement == "%s")
+               |> filter(fn: (r) => r["hostname"] == "%s")
+               |> filter(fn: (r) => r["service"] == "%s")', $this->bucket, $from, $checkCommand, $hostName, $serviceName);
 
-        $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value" or r["_field"] == "unit")';
+        // We need a different aggregateWindow function for different fields
+        $q .= sprintf('getSet = (tables=<-, field, fn) =>
+    tables
+        |> filter(fn: (r) => r._field == field)
+        |> aggregateWindow(fn: fn, every: %s)', '10m');
+
+        // unit is a string, we cannot use mean
+        $q .= sprintf('
+        value = baseData() |> getSet(field: "value", fn: mean)
+        warn = baseData() |> getSet(field: "warn", fn: mean)
+        crit = baseData() |> getSet(field: "crit", fn: mean)
+        unit = baseData() |> getSet(field: "unit", fn: last)
+        union(tables: [value, warn, crit, unit])');
 
         $query = [
             'stream' => true,
