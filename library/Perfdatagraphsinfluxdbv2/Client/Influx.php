@@ -2,6 +2,8 @@
 
 namespace Icinga\Module\Perfdatagraphsinfluxdbv2\Client;
 
+use Icinga\Module\Perfdatagraphsinfluxdbv2\Vendor\FluxCsvParser;
+
 use Icinga\Application\Config;
 use Icinga\Application\Logger;
 
@@ -29,6 +31,7 @@ class Influx
     protected string $org;
     protected string $bucket;
     protected string $token;
+    protected int $maxDataPoints;
 
     public function __construct(
         string $baseURI,
@@ -36,6 +39,7 @@ class Influx
         string $bucket,
         string $token,
         int $timeout = 2,
+        int $maxDataPoints = 10000,
         bool $tlsVerify = true
     ) {
         $this->client = new Client([
@@ -45,6 +49,7 @@ class Influx
 
         $this->URL = rtrim($baseURI, '/');
 
+        $this->maxDataPoints = $maxDataPoints;
         $this->org = $org;
         $this->bucket = $bucket;
         $this->token = $token;
@@ -58,6 +63,14 @@ class Influx
         bool $isHostCheck,
     ): Response {
 
+        $counts = $this->getMetricCount(
+            $hostName,
+            $serviceName,
+            $checkCommand,
+            $from,
+            $isHostCheck
+        );
+
         $q = sprintf('baseData = () => from(bucket: "%s")
                |> range(start: %s)
                |> filter(fn: (r) => r._measurement == "%s")
@@ -65,16 +78,21 @@ class Influx
                |> filter(fn: (r) => r["service"] == "%s")', $this->bucket, $from, $checkCommand, $hostName, $serviceName);
 
         // We need a different aggregateWindow function for different fields
-        $q .= sprintf('getSet = (tables=<-, field, fn) =>
-    tables
-        |> filter(fn: (r) => r._field == field)
-        |> aggregateWindow(fn: fn, every: %s)', '10m');
+        $q .= 'getSet = (tables=<-, field, fn) => tables
+        |> filter(fn: (r) => r._field == field)';
 
-        // unit is a string, we cannot use mean
+        if ($this->maxDataPoints > 0) {
+            $windowEverySeconds = $this->getAggregateWindow($from, $counts);
+            if ($windowEverySeconds > 0) {
+                $q .= sprintf('|> aggregateWindow(fn: fn, every: %ss)', $windowEverySeconds);
+            }
+        }
+
+        // We might want to use different aggregate functions.
         $q .= sprintf('
-        value = baseData() |> getSet(field: "value", fn: mean)
-        warn = baseData() |> getSet(field: "warn", fn: mean)
-        crit = baseData() |> getSet(field: "crit", fn: mean)
+        value = baseData() |> getSet(field: "value", fn: last)
+        warn = baseData() |> getSet(field: "warn", fn: last)
+        crit = baseData() |> getSet(field: "crit", fn: last)
         unit = baseData() |> getSet(field: "unit", fn: last)
         union(tables: [value, warn, crit, unit])');
 
@@ -171,6 +189,82 @@ class Influx
         return $ts->getTimestamp();
     }
 
+    public function getMetricCount(
+        string $hostName,
+        string $serviceName,
+        string $checkCommand,
+        string $from,
+        bool $isHostCheck,
+    ): array {
+
+        $q = sprintf('from(bucket: "%s")', $this->bucket);
+        $q .= sprintf('|> range(start: %s)', $from);
+        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
+        $q .= sprintf('|> filter(fn: (r) => r["hostname"] == "%s")', $hostName);
+        if (!$isHostCheck) {
+            $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
+        }
+
+        $q .= '|> count()';
+
+        $query = [
+            'stream' => true,
+            'headers' => [
+                'Authorization' => 'Token ' . $this->token,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/csv',
+            ],
+            'query' => [
+                'org' => $this->org,
+            ],
+            'json' => [
+                'query' => $q,
+                'type' => 'flux',
+                'dialect' => [
+                    'header' => true,
+                    'delimiter' => ',',
+                    'annotations' => ['datatype', 'group', 'default'],
+                    'commentPrefix' => '#'
+                ]
+            ],
+        ];
+
+        $url = $this->URL . $this::QUERY_ENDPOINT;
+
+        Logger::debug('Calling query API at %s with query: %s', $url, $query);
+
+        $response = $this->client->request('POST', $url, $query);
+        $stream = new FluxCsvParser($response->getBody(), true);
+
+        $metricStats = [];
+        foreach ($stream->each() as $record) {
+            $metricname = $record['metric'];
+            $metricStats[$metricname] = $record->getValue();
+        }
+
+        return $metricStats;
+    }
+
+    /**
+     * getAggregateWindow calculates the size of the aggregate window.
+     * If there is no need to aggregate it returns 0.
+     *
+     * @return int
+     */
+    protected function getAggregateWindow(string $from, array $count): int
+    {
+        $numOfDatapoints = array_pop($count);
+
+        $now = (new DateTime())->getTimestamp();
+        $from = intval($from);
+        // If there are datapoints than allowed we calculate an aggregation window size
+        if ($numOfDatapoints > $this->maxDataPoints) {
+            return (int) round(($now - $from) / $this->maxDataPoints);
+        }
+
+        return 0;
+    }
+
     /**
      * fromConfig returns a new Influx Client from this module's configuration
      *
@@ -185,6 +279,7 @@ class Influx
             'api_bucket' => '',
             'api_org' => '',
             'api_token' => '',
+            'api_max_data_points' => 10000,
             'api_tls_insecure' => false,
         ];
 
@@ -201,12 +296,13 @@ class Influx
 
         $baseURI = rtrim($moduleConfig->get('influx', 'api_url', $default['api_url']), '/');
         $timeout = (int) $moduleConfig->get('influx', 'api_timeout', $default['api_timeout']);
+        $maxDataPoints = (int) $moduleConfig->get('graphite', 'api_max_data_points', $default['api_max_data_points']);
         $org = $moduleConfig->get('influx', 'api_org', $default['api_org']);
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $token = $moduleConfig->get('influx', 'api_token', $default['api_token']);
         // Hint: We use a "skip TLS" logic in the UI, but Guzzle uses "verify TLS"
         $tlsVerify = !(bool) $moduleConfig->get('influx', 'api_tls_insecure', $default['api_tls_insecure']);
 
-        return new static($baseURI, $org, $bucket, $token, $timeout, $tlsVerify);
+        return new static($baseURI, $org, $bucket, $token, $timeout, $maxDataPoints, $tlsVerify);
     }
 }

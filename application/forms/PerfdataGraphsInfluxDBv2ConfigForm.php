@@ -53,6 +53,13 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'placeholder' => 10,
         ]);
 
+        $this->addElement('number', 'influx_max_data_points', [
+            'label' => t('The maximum numbers of datapoints each series returns'),
+            'description' => t('The maximum numbers of datapoints each series returns. Should be higher than 0'),
+            'required' => false,
+            'placeholder' => 10000,
+        ]);
+
         $this->addElement('checkbox', 'influx_api_tls_insecure', [
             'description' => t('Skip the TLS verification'),
             'label' => 'Skip the TLS verification'
