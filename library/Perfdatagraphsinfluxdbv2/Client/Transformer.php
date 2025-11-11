@@ -8,7 +8,6 @@ use Icinga\Module\Perfdatagraphs\Model\PerfdataResponse;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSet;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSeries;
 
-use DateTime;
 use GuzzleHttp\Psr7\Response;
 
 /**
@@ -98,25 +97,20 @@ class Transformer
             if (!isset($timestamps[$metricname])) {
                 $timestamps[$metricname] = [];
             }
-            // TODO Unit
-            $units[$metricname][] = $record['unit'];
+
+            $ts = strtotime($record->getTime());
+            $timestamps[$metricname][] = $ts;
 
             $valueseries[$metricname][] = $record['value'];
-            $d = new DateTime($record->getTime());
-            $timestamps[$metricname][] = $d->getTimestamp();
-
-            // Thresholds
-            $warningseries[$metricname][] = $record['warn'];
-            $criticalseries[$metricname][] = $record['crit'];
-
-            unset($d);
-            unset($record);
+            $units[$metricname] = $record['unit'] ?? '';
+            $warningseries[$metricname][] = $record['warn'] ?? null;
+            $criticalseries[$metricname][] = $record['crit'] ?? null;
         }
 
         // Add it to the PerfdataResponse
         // TODO: We could probably do this in the previous loop
         foreach (array_keys($valueseries) as $metric) {
-            $s = new PerfdataSet($metric, $units[$metric]);
+            $s = new PerfdataSet($metric, $units[$metric] ?? '');
 
             $s->setTimestamps($timestamps[$metric]);
 

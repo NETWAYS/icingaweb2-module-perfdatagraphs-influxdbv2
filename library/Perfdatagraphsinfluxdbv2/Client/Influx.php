@@ -81,7 +81,7 @@ class Influx
             $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
         }
 
-        // $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value" or r["_field"] == "unit")';
+        $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value" or r["_field"] == "unit")';
 
         if ($this->maxDataPoints > 0) {
             $windowEverySeconds = $this->getAggregateWindow($from, $counts);
@@ -91,31 +91,7 @@ class Influx
         }
 
         $q .= '|> schema.fieldsAsCols()';
-
-        // $q = sprintf('baseData = () => from(bucket: "%s")
-        //        |> range(start: %s)
-        //        |> filter(fn: (r) => r._measurement == "%s")
-        //        |> filter(fn: (r) => r["hostname"] == "%s")
-        //        |> filter(fn: (r) => r["service"] == "%s")', $this->bucket, $from, $checkCommand, $hostName, $serviceName);
-
-        // // We need a different aggregateWindow function for different fields
-        // $q .= 'getSet = (tables=<-, field, fn) => tables
-        // |> filter(fn: (r) => r._field == field)';
-
-        // if ($this->maxDataPoints > 0) {
-        //     $windowEverySeconds = $this->getAggregateWindow($from, $counts);
-        //     if ($windowEverySeconds > 0) {
-        //         $q .= sprintf('|> aggregateWindow(fn: fn, every: %ss)', $windowEverySeconds);
-        //     }
-        // }
-
-        // // We might want to use different aggregate functions.
-        // $q .= sprintf('
-        // value = baseData() |> getSet(field: "value", fn: last)
-        // warn = baseData() |> getSet(field: "warn", fn: last)
-        // crit = baseData() |> getSet(field: "crit", fn: last)
-        // unit = baseData() |> getSet(field: "unit", fn: last)
-        // union(tables: [value, warn, crit, unit])');
+        // $q .= '|> sort(columns: ["_time"], desc: desc)';
 
         $query = [
             'stream' => true,
