@@ -231,7 +231,7 @@ class Influx
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
 
-        Logger::debug('Calling query API at %s with query: %s', $url, $query);
+        Logger::debug('Calling query API at %s with count query: %s', $url, $query);
 
         $response = $this->client->request('POST', $url, $query);
         $stream = new FluxCsvParser($response->getBody(), true);
@@ -296,7 +296,7 @@ class Influx
 
         $baseURI = rtrim($moduleConfig->get('influx', 'api_url', $default['api_url']), '/');
         $timeout = (int) $moduleConfig->get('influx', 'api_timeout', $default['api_timeout']);
-        $maxDataPoints = (int) $moduleConfig->get('graphite', 'api_max_data_points', $default['api_max_data_points']);
+        $maxDataPoints = (int) $moduleConfig->get('influx', 'api_max_data_points', $default['api_max_data_points']);
         $org = $moduleConfig->get('influx', 'api_org', $default['api_org']);
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $token = $moduleConfig->get('influx', 'api_token', $default['api_token']);
