@@ -8,6 +8,7 @@ use Icinga\Module\Perfdatagraphs\Model\PerfdataResponse;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSet;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSeries;
 
+use DateTime;
 use GuzzleHttp\Psr7\Response;
 
 /**
@@ -66,11 +67,10 @@ class Transformer
         $stream = new FluxCsvParser($response->getBody(), true);
 
         $timestamps = [];
-        // Create PerfdataSeries and add to PerfdataSet
         $valueseries = [];
         $warningseries = [];
         $criticalseries = [];
-        $unit = '';
+        $units = [];
 
         foreach ($stream->each() as $record) {
             $metricname = $record['metric'];
@@ -83,44 +83,40 @@ class Transformer
                 continue;
             }
 
-            if ($record->getField() === 'unit' && empty($unit)) {
-                $unit = $record->getValue();
+            if (!isset($warningseries[$metricname])) {
+                $warningseries[$metricname] = [];
             }
 
-            if ($record->getField() === 'warn') {
-                if (!isset($warningseries[$metricname])) {
-                    $warningseries[$metricname] = [];
-                }
-                $warningseries[$metricname][] = $record->getValue();
-            };
-
-            if ($record->getField() === 'crit') {
-                if (!isset($criticalseries[$metricname])) {
-                    $criticalseries[$metricname] = [];
-                }
-                $criticalseries[$metricname][] = $record->getValue();
-            };
-
-            if ($record->getField() === 'value') {
-                if (!isset($valueseries[$metricname])) {
-                    $valueseries[$metricname] = [];
-                };
-
-                if (!isset($timestamps[$metricname])) {
-                    $timestamps[$metricname] = [];
-                }
-                $ts = strtotime($record->getTime());
-                $value = $record->getValue();
-
-                $timestamps[$metricname][] = $ts;
-                $valueseries[$metricname][] = isset($value) ? $value : null;
+            if (!isset($criticalseries[$metricname])) {
+                $criticalseries[$metricname] = [];
             }
+
+            if (!isset($valueseries[$metricname])) {
+                $valueseries[$metricname] = [];
+            }
+
+            if (!isset($timestamps[$metricname])) {
+                $timestamps[$metricname] = [];
+            }
+            // TODO Unit
+            $units[$metricname][] = $record['unit'];
+
+            $valueseries[$metricname][] = $record['value'];
+            $d = new DateTime($record->getTime());
+            $timestamps[$metricname][] = $d->getTimestamp();
+
+            // Thresholds
+            $warningseries[$metricname][] = $record['warn'];
+            $criticalseries[$metricname][] = $record['crit'];
+
+            unset($d);
+            unset($record);
         }
 
         // Add it to the PerfdataResponse
         // TODO: We could probably do this in the previous loop
         foreach (array_keys($valueseries) as $metric) {
-            $s = new PerfdataSet($metric, $unit);
+            $s = new PerfdataSet($metric, $units[$metric]);
 
             $s->setTimestamps($timestamps[$metric]);
 
