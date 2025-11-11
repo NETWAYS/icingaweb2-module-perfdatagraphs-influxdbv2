@@ -75,6 +75,7 @@ class Influx
 
         $q .= sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %s)', $from);
+        $q .= '|> sort(columns: ["_time"], desc: true)';
         $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
         $q .= sprintf('|> filter(fn: (r) => r["hostname"] == "%s")', $hostName);
         if (!$isHostCheck) {
@@ -91,7 +92,6 @@ class Influx
         }
 
         $q .= '|> schema.fieldsAsCols()';
-        // $q .= '|> sort(columns: ["_time"], desc: desc)';
 
         $query = [
             'stream' => true,
