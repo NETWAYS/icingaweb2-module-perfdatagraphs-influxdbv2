@@ -70,7 +70,7 @@ class Transformer
         $valueseries = [];
         $warningseries = [];
         $criticalseries = [];
-        $unit = '';
+        $units = [];
 
         foreach ($stream->each() as $record) {
             $metricname = $record['metric'];
@@ -81,10 +81,6 @@ class Transformer
 
             if (self::isExcluded($metricname, $excludeMetrics)) {
                 continue;
-            }
-
-            if ($record->getField() === 'unit' && empty($unit)) {
-                $unit = $record->getValue();
             }
 
             if ($record->getField() === 'warn') {
@@ -101,14 +97,20 @@ class Transformer
                 $criticalseries[$metricname][] = $record->getValue();
             };
 
+            if ($record->getField() === 'unit') {
+                $units[$metricname] = $record->getValue();
+            }
+
             if ($record->getField() === 'value') {
                 if (!isset($valueseries[$metricname])) {
                     $valueseries[$metricname] = [];
-                };
+                }
 
                 if (!isset($timestamps[$metricname])) {
                     $timestamps[$metricname] = [];
                 }
+
+
                 $ts = strtotime($record->getTime());
                 $value = $record->getValue();
 
@@ -120,7 +122,7 @@ class Transformer
         // Add it to the PerfdataResponse
         // TODO: We could probably do this in the previous loop
         foreach (array_keys($valueseries) as $metric) {
-            $s = new PerfdataSet($metric, $unit);
+            $s = new PerfdataSet($metric, $units[$metric] ?? '');
 
             $s->setTimestamps($timestamps[$metric]);
 
