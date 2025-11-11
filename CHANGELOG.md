@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.4
+
+- Fix units not being set correctly
+
 ## v0.1.3
 
 - Fix TLS verify logic
