@@ -53,7 +53,7 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'placeholder' => 10,
         ]);
 
-        $this->addElement('number', 'influx_max_data_points', [
+        $this->addElement('number', 'influx_api_max_data_points', [
             'label' => t('The maximum numbers of datapoints each series returns'),
             'description' => t(' '),
             'description'   => t(
