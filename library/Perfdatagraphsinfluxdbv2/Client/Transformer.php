@@ -119,14 +119,18 @@ class Transformer
                 $s->addSeries($values);
             }
 
-            if (array_key_exists($metric, $warningseries) && !empty($warningseries)) {
-                $warnings = new PerfdataSeries('warning', $warningseries[$metric]);
-                $s->addSeries($warnings);
+            if (array_key_exists($metric, $warningseries)) {
+                if (count(array_filter($warningseries[$metric], fn($v)=> $v !== null)) > 0) {
+                    $warnings = new PerfdataSeries('warning', $warningseries[$metric]);
+                    $s->addSeries($warnings);
+                }
             }
 
-            if (array_key_exists($metric, $criticalseries) && !empty($criticalseries)) {
-                $criticals = new PerfdataSeries('critical', $criticalseries[$metric]);
-                $s->addSeries($criticals);
+            if (array_key_exists($metric, $criticalseries)) {
+                if (count(array_filter($criticalseries[$metric], fn($v)=> $v !== null)) > 0) {
+                    $criticals = new PerfdataSeries('critical', $criticalseries[$metric]);
+                    $s->addSeries($criticals);
+                }
             }
 
             $pfr->addDataset($s);
