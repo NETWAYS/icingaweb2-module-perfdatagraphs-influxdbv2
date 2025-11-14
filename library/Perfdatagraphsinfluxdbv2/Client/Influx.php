@@ -79,8 +79,7 @@ class Influx
             $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
         }
 
-        $q .= '|> filter(fn: (r) => r["_field"] == "crit" or r["_field"] == "warn" or r["_field"] == "value" or r["_field"] == "unit")';
-        $q .= '|> group(columns: ["_time", "metric"])';
+        $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
 
         if ($this->maxDataPoints > 0) {
             $windowEverySeconds = $this->getAggregateWindow($from, $counts);
@@ -90,6 +89,8 @@ class Influx
         }
 
         $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
+        $q .= '|> sort(columns: ["_time"])';
+        $q .= '|> keep(columns: ["_time", "value", "warn", "crit", "unit", "host", "service", "metric"])';
 
         $query = [
             'stream' => true,

@@ -99,7 +99,7 @@ class Transformer
             }
 
             $timestamps[$metricname][] = strtotime($record->getTime());
-            $valueseries[$metricname][] = $record['value'];
+            $valueseries[$metricname][] = $record['value'] ?? null;
             $units[$metricname] = $record['unit'] ?? '';
             $warningseries[$metricname][] = $record['warn'] ?? null;
             $criticalseries[$metricname][] = $record['crit'] ?? null;
