@@ -66,7 +66,6 @@ class Transformer
         $stream = new FluxCsvParser($response->getBody(), true);
 
         $timestamps = [];
-        // Create PerfdataSeries and add to PerfdataSet
         $valueseries = [];
         $warningseries = [];
         $criticalseries = [];
@@ -83,40 +82,27 @@ class Transformer
                 continue;
             }
 
-            if ($record->getField() === 'warn') {
-                if (!isset($warningseries[$metricname])) {
-                    $warningseries[$metricname] = [];
-                }
-                $warningseries[$metricname][] = $record->getValue();
-            };
-
-            if ($record->getField() === 'crit') {
-                if (!isset($criticalseries[$metricname])) {
-                    $criticalseries[$metricname] = [];
-                }
-                $criticalseries[$metricname][] = $record->getValue();
-            };
-
-            if ($record->getField() === 'unit') {
-                $units[$metricname] = $record->getValue();
+            if (!isset($warningseries[$metricname])) {
+                $warningseries[$metricname] = [];
             }
 
-            if ($record->getField() === 'value') {
-                if (!isset($valueseries[$metricname])) {
-                    $valueseries[$metricname] = [];
-                }
-
-                if (!isset($timestamps[$metricname])) {
-                    $timestamps[$metricname] = [];
-                }
-
-
-                $ts = strtotime($record->getTime());
-                $value = $record->getValue();
-
-                $timestamps[$metricname][] = $ts;
-                $valueseries[$metricname][] = isset($value) ? $value : null;
+            if (!isset($criticalseries[$metricname])) {
+                $criticalseries[$metricname] = [];
             }
+
+            if (!isset($valueseries[$metricname])) {
+                $valueseries[$metricname] = [];
+            }
+
+            if (!isset($timestamps[$metricname])) {
+                $timestamps[$metricname] = [];
+            }
+
+            $timestamps[$metricname][] = strtotime($record->getTime());
+            $valueseries[$metricname][] = $record['value'] ?? null;
+            $units[$metricname] = $record['unit'] ?? '';
+            $warningseries[$metricname][] = $record['warn'] ?? null;
+            $criticalseries[$metricname][] = $record['crit'] ?? null;
         }
 
         // Add it to the PerfdataResponse
@@ -131,14 +117,18 @@ class Transformer
                 $s->addSeries($values);
             }
 
-            if (array_key_exists($metric, $warningseries) && !empty($warningseries)) {
-                $warnings = new PerfdataSeries('warning', $warningseries[$metric]);
-                $s->addSeries($warnings);
+            if (array_key_exists($metric, $warningseries)) {
+                if (count(array_filter($warningseries[$metric], fn($v)=> $v !== null)) > 0) {
+                    $warnings = new PerfdataSeries('warning', $warningseries[$metric]);
+                    $s->addSeries($warnings);
+                }
             }
 
-            if (array_key_exists($metric, $criticalseries) && !empty($criticalseries)) {
-                $criticals = new PerfdataSeries('critical', $criticalseries[$metric]);
-                $s->addSeries($criticals);
+            if (array_key_exists($metric, $criticalseries)) {
+                if (count(array_filter($criticalseries[$metric], fn($v)=> $v !== null)) > 0) {
+                    $criticals = new PerfdataSeries('critical', $criticalseries[$metric]);
+                    $s->addSeries($criticals);
+                }
             }
 
             $pfr->addDataset($s);
