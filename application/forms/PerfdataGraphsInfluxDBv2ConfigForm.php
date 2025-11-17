@@ -36,13 +36,13 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         ]);
 
         $this->addElement('text', 'influx_api_bucket', [
-            'label' => t('InfluxDB Bucket'),
+            'label' => t('InfluxDB bucket'),
             'description' => t('the bucket for the performance data'),
             'required' => true
         ]);
 
         $this->addElement('password', 'influx_api_token', [
-            'label' => t('InfluxDB API Token'),
+            'label' => t('InfluxDB API token'),
             'description' => t('Token for the authentication'),
             'renderPassword' => true,
         ]);
