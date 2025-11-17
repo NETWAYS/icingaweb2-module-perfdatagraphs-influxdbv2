@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.0
+
+- Add maxdatapoints configuration for downsampling
+- Fix thresholds not being set correctly when enabled later
+
 ## v0.1.4
 
 - Fix units not being set correctly
