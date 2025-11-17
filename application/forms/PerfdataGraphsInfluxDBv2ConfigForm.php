@@ -36,13 +36,13 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         ]);
 
         $this->addElement('text', 'influx_api_bucket', [
-            'label' => t('InfluxDB Bucket'),
+            'label' => t('InfluxDB bucket'),
             'description' => t('the bucket for the performance data'),
             'required' => true
         ]);
 
         $this->addElement('password', 'influx_api_token', [
-            'label' => t('InfluxDB API Token'),
+            'label' => t('InfluxDB API token'),
             'description' => t('Token for the authentication'),
             'renderPassword' => true,
         ]);
@@ -51,6 +51,18 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'label' => t('HTTP timeout in seconds'),
             'description' => t('HTTP timeout for the API in seconds. Should be higher than 0'),
             'placeholder' => 10,
+        ]);
+
+        $this->addElement('number', 'influx_api_max_data_points', [
+            'label' => t('The maximum numbers of datapoints each series returns'),
+            'description' => t(' '),
+            'description'   => t(
+                'The maximum numbers of datapoints each series returns.'
+                    . ' If there are more datapoints the module will use the Flux function aggregateWindow to downsample to this number.'
+                    . ' You can disable aggregation by setting this to 0.'
+            ),
+            'required' => false,
+            'placeholder' => 10000,
         ]);
 
         $this->addElement('checkbox', 'influx_api_tls_insecure', [
