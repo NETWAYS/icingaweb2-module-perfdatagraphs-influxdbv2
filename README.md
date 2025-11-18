@@ -1,5 +1,3 @@
-**Note:** This is an early release that is still in development and prone to change
-
 # Icinga Web Performance Data Graphs InfluxDBv2 Backend
 
 A InfluxDBv2 backend for the Icinga Web Performance Data Graphs Module.
@@ -12,6 +10,7 @@ This module requires the frontend module:
 
 * PHP version ≥ 8.0
 * IcingaDB or IDO Database
+* InfluxDB v2
 
 ## Known Issues
 
