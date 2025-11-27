@@ -69,6 +69,26 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'description' => t('Skip the TLS verification'),
             'label' => 'Skip the TLS verification'
         ]);
+
+        $this->addElement(
+            'text',
+            'influx_writer_host_name_template_tag',
+            [
+                'label' => t('Host name template tag'),
+                'description' => t('The configured tag name for the "host name" in Icinga 2 Influxdb2Writer'),
+                'placeholder' => 'hostname',
+            ]
+        );
+
+        $this->addElement(
+            'text',
+            'influx_writer_service_name_template_tag',
+            [
+                'label' => t('Service name template tag'),
+                'description' => t('The configured tag name for the "service name" in Icinga 2 Influxdb2Writer'),
+                'placeholder' => 'service',
+            ]
+        );
     }
 
     public function addSubmitButton()

@@ -31,6 +31,8 @@ class Influx
     protected string $org;
     protected string $bucket;
     protected string $token;
+    protected string $hostnameTag;
+    protected string $servicenameTag;
     protected int $maxDataPoints;
 
     public function __construct(
@@ -38,6 +40,8 @@ class Influx
         string $org,
         string $bucket,
         string $token,
+        string $hostnameTag,
+        string $servicenameTag,
         int $timeout = 2,
         int $maxDataPoints = 10000,
         bool $tlsVerify = true
@@ -53,6 +57,8 @@ class Influx
         $this->org = $org;
         $this->bucket = $bucket;
         $this->token = $token;
+        $this->hostnameTag = $hostnameTag;
+        $this->servicenameTag = $servicenameTag;
     }
 
     public function getMetrics(
@@ -74,9 +80,9 @@ class Influx
         $q = sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %s)', $from);
         $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
-        $q .= sprintf('|> filter(fn: (r) => r["hostname"] == "%s")', $hostName);
+        $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, $hostName);
         if (!$isHostCheck) {
-            $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
+            $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, $serviceName);
         }
 
         $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
@@ -196,9 +202,9 @@ class Influx
         $q = sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %s)', $from);
         $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
-        $q .= sprintf('|> filter(fn: (r) => r["hostname"] == "%s")', $hostName);
+        $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, $hostName);
         if (!$isHostCheck) {
-            $q .= sprintf('|> filter(fn: (r) => r["service"] == "%s")', $serviceName);
+            $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, $serviceName);
         }
 
         $q .= '|> count()';
@@ -283,6 +289,8 @@ class Influx
             'api_token' => '',
             'api_max_data_points' => 10000,
             'api_tls_insecure' => false,
+            'writer_host_name_template_tag' => 'hostname',
+            'writer_service_name_template_tag' => 'service',
         ];
 
         // Try to load the configuration
@@ -302,9 +310,21 @@ class Influx
         $org = $moduleConfig->get('influx', 'api_org', $default['api_org']);
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $token = $moduleConfig->get('influx', 'api_token', $default['api_token']);
+        $hostnameTag = $moduleConfig->get('influx', 'writer_host_name_template_tag', $default['writer_host_name_template_tag']);
+        $servicenameTag = $moduleConfig->get('influx', 'writer_service_name_template_tag', $default['writer_service_name_template_tag']);
         // Hint: We use a "skip TLS" logic in the UI, but Guzzle uses "verify TLS"
         $tlsVerify = !(bool) $moduleConfig->get('influx', 'api_tls_insecure', $default['api_tls_insecure']);
 
-        return new static($baseURI, $org, $bucket, $token, $timeout, $maxDataPoints, $tlsVerify);
+        return new static(
+            baseURI: $baseURI,
+            org: $org,
+            bucket: $bucket,
+            token: $token,
+            hostnameTag: $hostnameTag,
+            servicenameTag: $servicenameTag,
+            timeout: $timeout,
+            maxDataPoints: $maxDataPoints,
+            tlsVerify: $tlsVerify
+        );
     }
 }
