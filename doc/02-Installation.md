@@ -33,6 +33,8 @@ To install this module, follow the setup instructions for the **extras** reposit
 | influx_api_timeout          | HTTP timeout for the API in seconds. Should be higher than 0                                             | `10` (seconds)           |
 | influx_api_max_data_points  | The maximum numbers of datapoints each series returns. Aggregation can be disabled by setting this to 0. | `10000`                  |
 | influx_api_tls_insecure     | Skip the TLS verification                                                                                | `false` (unchecked)      |
+| influx_writer_host_name_template_tag    | The configured tag name for the 'host name' in Icinga 2 Influxdb2Writer  | `hostname` |
+| influx_writer_service_name_template_tag | The configured tag name for the 'service name' in Icinga 2 Influxdb2Writer  | `service` |
 
 `influx_api_max_data_points` is used for downsampling data. The value is used to calculate window sizes for the flux `aggregateWindow` function.
 We set`aggregateWindow` to use the `last` selector function, which means, for each windows the last data point is used.
