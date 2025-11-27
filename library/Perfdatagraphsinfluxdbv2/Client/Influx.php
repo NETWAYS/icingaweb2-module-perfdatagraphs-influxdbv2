@@ -42,7 +42,7 @@ class Influx
         string $token,
         string $hostnameTag,
         string $servicenameTag,
-        int $timeout = 2,
+        int $timeout = 10,
         int $maxDataPoints = 10000,
         bool $tlsVerify = true
     ) {
@@ -61,22 +61,13 @@ class Influx
         $this->servicenameTag = $servicenameTag;
     }
 
-    public function getMetrics(
+    protected function generateBaseQuery(
         string $hostName,
         string $serviceName,
         string $checkCommand,
         string $from,
-        bool $isHostCheck,
-    ): Response {
-
-        $counts = $this->getMetricCount(
-            $hostName,
-            $serviceName,
-            $checkCommand,
-            $from,
-            $isHostCheck
-        );
-
+        bool $isHostCheck
+    ): string {
         $q = sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %s)', $from);
         $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
@@ -85,19 +76,11 @@ class Influx
             $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, $serviceName);
         }
 
-        $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
+        return $q;
+    }
 
-        if ($this->maxDataPoints > 0) {
-            $windowEverySeconds = $this->getAggregateWindow($from, $counts);
-            if ($windowEverySeconds > 0) {
-                $q .= sprintf('|> aggregateWindow(fn: last, every: %ss)', $windowEverySeconds);
-            }
-        }
-
-        $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
-        $q .= '|> sort(columns: ["_time"])';
-        $q .= '|> keep(columns: ["_time", "value", "warn", "crit", "unit", "host", "service", "metric"])';
-
+    protected function generateBaseRequest(string $q): array
+    {
         $query = [
             'stream' => true,
             'headers' => [
@@ -119,6 +102,43 @@ class Influx
                 ]
             ],
         ];
+
+        return $query;
+    }
+
+    public function getMetrics(
+        string $hostName,
+        string $serviceName,
+        string $checkCommand,
+        string $from,
+        bool $isHostCheck,
+    ): Response {
+        $counts = $this->getMetricCount(
+            $hostName,
+            $serviceName,
+            $checkCommand,
+            $from,
+            $isHostCheck
+        );
+
+        $q = $this->generateBaseQuery($hostName, $serviceName, $checkCommand, $from, $isHostCheck);
+        // If there are no warn/crit values we still want to set empty values to have consistency
+        $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
+
+        // When we have more than the max datapoints, we add the aggregateWindow function to downsample data
+        if ($this->maxDataPoints > 0) {
+            $windowEverySeconds = $this->getAggregateWindow($from, $counts);
+            if ($windowEverySeconds > 0) {
+                $q .= sprintf('|> aggregateWindow(fn: last, every: %ss)', $windowEverySeconds);
+            }
+        }
+
+        // Pivot just to that we have less work transforming the data later
+        $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
+        $q .= '|> sort(columns: ["_time"])';
+        $q .= '|> keep(columns: ["_time", "value", "warn", "crit", "unit", "host", "service", "metric"])';
+
+        $query = $this->generateBaseRequest($q);
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
 
@@ -199,37 +219,11 @@ class Influx
         bool $isHostCheck,
     ): array {
 
-        $q = sprintf('from(bucket: "%s")', $this->bucket);
-        $q .= sprintf('|> range(start: %s)', $from);
-        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
-        $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, $hostName);
-        if (!$isHostCheck) {
-            $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, $serviceName);
-        }
-
+        $q = $this->generateBaseQuery($hostName, $serviceName, $checkCommand, $from, $isHostCheck);
+        // We just need the count
         $q .= '|> count()';
 
-        $query = [
-            'stream' => true,
-            'headers' => [
-                'Authorization' => 'Token ' . $this->token,
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/csv',
-            ],
-            'query' => [
-                'org' => $this->org,
-            ],
-            'json' => [
-                'query' => $q,
-                'type' => 'flux',
-                'dialect' => [
-                    'header' => true,
-                    'delimiter' => ',',
-                    'annotations' => ['datatype', 'group', 'default'],
-                    'commentPrefix' => '#'
-                ]
-            ],
-        ];
+        $query = $this->generateBaseRequest($q);
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
 
@@ -251,7 +245,9 @@ class Influx
      * getAggregateWindow calculates the size of the aggregate window.
      * If there is no need to aggregate it returns 0.
      *
-     * @return int
+     * @param string $from timestamp in seconds
+     * @param array $count count of datapoints
+     * @return int size of the aggregation window in seconds
      */
     protected function getAggregateWindow(string $from, array $count): int
     {
