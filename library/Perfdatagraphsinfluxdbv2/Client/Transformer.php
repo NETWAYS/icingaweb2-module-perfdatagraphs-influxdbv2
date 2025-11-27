@@ -121,8 +121,10 @@ class Transformer
             $criticalseries[$metricname][] = $record['crit'] ?? null;
         }
 
-        // Add it to the PerfdataResponse
-        // TODO: We could probably do this in the previous loop
+        // Add the data to the PerfdataResponse.
+        // We could probably do this in the previous loop, I did a bit of
+        // profiling and it did not make much of a difference. But I'm
+        // not a PHP Pro, so if someone wants to try it feel free.
         foreach (array_keys($valueseries) as $metric) {
             $s = new PerfdataSet($metric, $units[$metric] ?? '');
 
