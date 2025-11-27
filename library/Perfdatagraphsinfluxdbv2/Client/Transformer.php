@@ -15,6 +15,13 @@ use GuzzleHttp\Psr7\Response;
  */
 class Transformer
 {
+    /**
+     * isIncluded checks if the given metricname is in the given list
+     *
+     * @param string $metricname name of the metric to find
+     * @param array $includeMetrics metrics to include
+     * @return bool
+     */
     public static function isIncluded($metricname, array $includeMetrics = []): bool
     {
         // All are included if not set
@@ -29,6 +36,13 @@ class Transformer
         return false;
     }
 
+    /**
+     * isExcluded checks if the given metricname is in the given list
+     *
+     * @param string $metricname name of the metric to find
+     * @param array $excludeMetrics metrics to exlude from the response
+     * @return bool
+     */
     public static function isExcluded($metricname, array $excludeMetrics = []): bool
     {
         // None are exlucded if not set
@@ -49,6 +63,8 @@ class Transformer
      * output format we need.
      *
      * @param GuzzleHttp\Psr7\Response $response the data to transform
+     * @param array $includeMetrics metrics to include in the response
+     * @param array $excludeMetrics metrics to exlude from the response
      * @return PerfdataResponse
      */
     public static function transform(
