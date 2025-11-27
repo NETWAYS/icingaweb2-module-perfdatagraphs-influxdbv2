@@ -9,6 +9,7 @@ This module requires the frontend module:
 ## Installation Requirements
 
 * PHP version ≥ 8.0
+* Icinga2 Influxdb2Writer
 * IcingaDB or IDO Database
 * InfluxDB v2
 
