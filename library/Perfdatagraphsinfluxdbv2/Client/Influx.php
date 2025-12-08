@@ -70,10 +70,10 @@ class Influx
     ): string {
         $q = sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %s)', $from);
-        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', $checkCommand);
-        $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, $hostName);
+        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($checkCommand));
+        $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, addslashes($hostName));
         if (!$isHostCheck) {
-            $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, $serviceName);
+            $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, addslashes($serviceName));
         }
 
         return $q;
