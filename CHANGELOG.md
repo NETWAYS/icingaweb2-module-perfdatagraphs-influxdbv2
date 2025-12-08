@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0
+
+- Add configuration option to set host and service tag names
+- Fix queries not being escaped
+
 ## v0.2.0
 
 - Add maxdatapoints configuration for downsampling
