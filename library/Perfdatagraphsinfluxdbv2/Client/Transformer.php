@@ -88,7 +88,11 @@ class Transformer
         $units = [];
 
         foreach ($stream->each() as $record) {
-            $metricname = $record['metric'];
+            $metricname = $record['metric'] ?? '';
+
+            if ($metricname === null || $metricname === '') {
+                continue;
+            }
 
             if (!self::isIncluded($metricname, $includeMetrics)) {
                 continue;
@@ -98,58 +102,57 @@ class Transformer
                 continue;
             }
 
-            if (!isset($warningseries[$metricname])) {
-                $warningseries[$metricname] = [];
+            // Do we have a dataset already?
+            $dataset = $pfr->getDataset($metricname);
+
+            // No, then create a new one
+            if (empty($dataset)) {
+                $unit = $record['unit'] ?? '';
+                $dataset = new PerfdataSet($metricname, $unit);
+                $pfr->addDataset($dataset);
             }
 
-            if (!isset($criticalseries[$metricname])) {
-                $criticalseries[$metricname] = [];
+            $dataset->addTimestamp(strtotime($record->getTime()));
+
+            $series = $dataset->getSeries();
+
+            if (array_key_exists('value', $series)) {
+                $vs = $series['value'];
+                $vs->addValue($record['value'] ?? null);
+            } else {
+                $vs = new PerfdataSeries('value');
+                $vs->addValue($record['value'] ?? null);
+                $dataset->addSeries($vs);
             }
 
-            if (!isset($valueseries[$metricname])) {
-                $valueseries[$metricname] = [];
+            if (array_key_exists('warning', $series)) {
+                $ws = $series['warning'];
+                $ws->addValue($record['warn'] ?? null);
+            } else {
+                $ws = new PerfdataSeries('warning');
+                $ws->addValue($record['warn'] ?? null);
+                $dataset->addSeries($ws);
             }
 
-            if (!isset($timestamps[$metricname])) {
-                $timestamps[$metricname] = [];
+            if (array_key_exists('critical', $series)) {
+                $cs = $series['critical'];
+                $cs->addValue($record['crit'] ?? null);
+            } else {
+                $cs = new PerfdataSeries('critical');
+                $cs->addValue($record['crit'] ?? null);
+                $dataset->addSeries($cs);
             }
-
-            $timestamps[$metricname][] = strtotime($record->getTime());
-            $valueseries[$metricname][] = $record['value'] ?? null;
-            $units[$metricname] = $record['unit'] ?? '';
-            $warningseries[$metricname][] = $record['warn'] ?? null;
-            $criticalseries[$metricname][] = $record['crit'] ?? null;
         }
 
-        // Add the data to the PerfdataResponse.
-        // We could probably do this in the previous loop, I did a bit of
-        // profiling and it did not make much of a difference. But I'm
-        // not a PHP Pro, so if someone wants to try it feel free.
-        foreach (array_keys($valueseries) as $metric) {
-            $s = new PerfdataSet($metric, $units[$metric] ?? '');
-
-            $s->setTimestamps($timestamps[$metric]);
-
-            if (array_key_exists($metric, $valueseries)) {
-                $values = new PerfdataSeries('value', $valueseries[$metric]);
-                $s->addSeries($values);
-            }
-
-            if (array_key_exists($metric, $warningseries)) {
-                if (count(array_filter($warningseries[$metric], fn($v)=> $v !== null)) > 0) {
-                    $warnings = new PerfdataSeries('warning', $warningseries[$metric]);
-                    $s->addSeries($warnings);
+        // Remove the empty series from the datasets
+        $ds = $pfr->getDatasets();
+        foreach ($ds as $dataset) {
+            $series = $dataset->getSeries();
+            foreach ($series as $ser) {
+                if ($ser->isEmpty()) {
+                    $dataset->removeSeries($ser->getName());
                 }
             }
-
-            if (array_key_exists($metric, $criticalseries)) {
-                if (count(array_filter($criticalseries[$metric], fn($v)=> $v !== null)) > 0) {
-                    $criticals = new PerfdataSeries('critical', $criticalseries[$metric]);
-                    $s->addSeries($criticals);
-                }
-            }
-
-            $pfr->addDataset($s);
         }
 
         return $pfr;
