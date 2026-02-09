@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.1
+
+- Fix missing connections options for config form
+- Refactor transformer to fix some data processing issues
+
 ## v0.3.0
 
 - Add configuration option to set host and service tag names
