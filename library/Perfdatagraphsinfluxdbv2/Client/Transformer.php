@@ -8,6 +8,8 @@ use Icinga\Module\Perfdatagraphs\Model\PerfdataResponse;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSet;
 use Icinga\Module\Perfdatagraphs\Model\PerfdataSeries;
 
+use Icinga\Application\Logger;
+
 use GuzzleHttp\Psr7\Response;
 
 /**
