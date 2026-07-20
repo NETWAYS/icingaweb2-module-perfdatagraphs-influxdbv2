@@ -97,7 +97,7 @@ class FluxCsvParser
     public function each()
     {
         try {
-            while (($csv = fgetcsv($this->resource)) !== false) {
+            while (($csv = fgetcsv($this->resource, escape: "\\")) !== false) {
                 if (!isset($csv) || (count($csv) == 1 && $csv[0] == null)) {
                     continue;
                 }
@@ -304,7 +304,7 @@ class FluxCsvParser
             if ($strVal == '-Inf') {
                 return -INF;
             }
-            return (double)$strVal;
+            return (float)$strVal;
         }
 
         if ('base64Binary' == $column->dataType) {
