@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.0
+
+- Raise minimum requirements to PHP 8.2
+
+**Breaking Changes**
+
+- Add mTLS and token auth (changes configuration option names)
+
 ## v0.3.1
 
 - Fix missing connections options for config form

@@ -24,13 +24,11 @@ class Influx
     protected const BUCKET_ENDPOINT = '/api/v2/buckets';
     protected const QUERY_ENDPOINT = '/api/v2/query';
 
-    /** @var $this \Icinga\Application\Modules\Module */
-    protected $client = null;
-
+    protected \GuzzleHttp\Client $client;
     protected string $URL;
     protected string $org;
     protected string $bucket;
-    protected string $token;
+    protected array $auth;
     protected string $hostnameTag;
     protected string $servicenameTag;
     protected int $maxDataPoints;
@@ -39,12 +37,12 @@ class Influx
         string $baseURI,
         string $org,
         string $bucket,
-        string $token,
         string $hostnameTag,
         string $servicenameTag,
         int $timeout = 10,
         int $maxDataPoints = 10000,
-        bool $tlsVerify = true
+        bool $tlsVerify = true,
+        array $auth = [],
     ) {
         $this->client = new Client([
             'timeout' => $timeout,
@@ -56,20 +54,58 @@ class Influx
         $this->maxDataPoints = $maxDataPoints;
         $this->org = $org;
         $this->bucket = $bucket;
-        $this->token = $token;
+        $this->auth = $auth;
         $this->hostnameTag = $hostnameTag;
         $this->servicenameTag = $servicenameTag;
+    }
+
+    protected function getAuth(): array
+    {
+        $method = $this->auth['method'] ?? 'none';
+
+        $authOptions = [];
+
+        if ($method === 'basic') {
+            $authOptions['auth'] = [
+                $this->auth['username'] ?? '',
+                $this->auth['password'] ?? ''
+            ];
+        }
+
+        if ($method === 'token') {
+            $t = $this->auth['tokentype'] ?? 'Token';
+            $v = $this->auth['tokenvalue'] ?? '';
+            $authOptions['headers'] = [
+                    'Authorization' =>  $t .' '. $v,
+            ];
+        }
+
+        $mtls = $this->auth['mtls'] ?? false;
+
+        if ($mtls === false) {
+            return $authOptions;
+        }
+
+        if ($mtls) {
+            $authOptions['cert'] = $this->auth['mtls_cert'] ?? '';
+            $authOptions['ssl_key'] = $this->auth['mtls_key'] ?? '';
+            if (($this->auth['mtls_ca'] ?? '') !== '') {
+                $authOptions['verify'] = $this->auth['mtls_ca'] ?? '';
+            }
+        }
+
+        return $authOptions;
     }
 
     protected function generateBaseQuery(
         string $hostName,
         string $serviceName,
         string $checkCommand,
-        string $from,
+        int $from,
         bool $isHostCheck
     ): string {
         $q = sprintf('from(bucket: "%s")', $this->bucket);
-        $q .= sprintf('|> range(start: %s)', $from);
+        $q .= sprintf('|> range(start: %d)', $from);
         $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($checkCommand));
         $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, addslashes($hostName));
         if (!$isHostCheck) {
@@ -84,7 +120,6 @@ class Influx
         $query = [
             'stream' => true,
             'headers' => [
-                'Authorization' => 'Token ' . $this->token,
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/csv',
             ],
@@ -110,7 +145,7 @@ class Influx
         string $hostName,
         string $serviceName,
         string $checkCommand,
-        string $from,
+        int $from,
         bool $isHostCheck,
     ): Response {
         $counts = $this->getMetricCount(
@@ -142,6 +177,8 @@ class Influx
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
 
+        $query = array_merge_recursive($query, $this->getAuth());
+
         Logger::debug('Calling query API at %s with query: %s', $url, $query);
 
         $response = $this->client->request('POST', $url, $query);
@@ -162,12 +199,13 @@ class Influx
                 'name' => $this->bucket,
             ],
             'headers' => [
-                'Authorization' => 'Token ' . $this->token,
                 'Content-Type' => 'application/json',
             ]
         ];
 
         $url = $this->URL . $this::BUCKET_ENDPOINT;
+
+        $query = array_merge_recursive($query, $this->getAuth());
 
         try {
             $response = $this->client->request('GET', $url, $query);
@@ -197,25 +235,23 @@ class Influx
      * @param string $now current time (used in testing)
      * @return string
      */
-    public static function parseDuration(\DateTime $now, string $duration): string
+    public static function parseDuration(\DateTime $now, string $duration): int
     {
         try {
-            $int = new DateInterval($duration);
+            $interval = new DateInterval($duration);
         } catch (Exception $e) {
             Logger::error('Failed to parse date interval: %s', $e);
-            $int = new DateInterval('PT12H');
+            $interval = new DateInterval('PT12H');
         }
 
-        $ts = $now->sub($int);
-
-        return $ts->getTimestamp();
+        return (clone $now)->sub($interval)->getTimestamp();
     }
 
     public function getMetricCount(
         string $hostName,
         string $serviceName,
         string $checkCommand,
-        string $from,
+        int $from,
         bool $isHostCheck,
     ): array {
 
@@ -226,6 +262,8 @@ class Influx
         $query = $this->generateBaseRequest($q);
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
+
+        $query = array_merge_recursive($query, $this->getAuth());
 
         Logger::debug('Calling query API at %s with count query: %s', $url, $query);
 
@@ -245,12 +283,16 @@ class Influx
      * getAggregateWindow calculates the size of the aggregate window.
      * If there is no need to aggregate it returns 0.
      *
-     * @param string $from timestamp in seconds
+     * @param int $from timestamp in seconds
      * @param array $count count of datapoints
      * @return int size of the aggregation window in seconds
      */
-    protected function getAggregateWindow(string $from, array $count): int
+    protected function getAggregateWindow(int $from, array $count): int
     {
+        if (empty($count)) {
+            return 0;
+        }
+
         // Since all time series are part of the same check, they have the same count
         $numOfDatapoints = array_pop($count);
 
@@ -260,7 +302,6 @@ class Influx
         }
 
         $now = (new DateTime())->getTimestamp();
-        $from = intval($from);
         // If there are datapoints than allowed we calculate an aggregation window size
         if ($numOfDatapoints > $this->maxDataPoints) {
             return (int) round(($now - $from) / $this->maxDataPoints);
@@ -275,18 +316,26 @@ class Influx
      * @param Config $moduleConfig configuration to load (used for testing)
      * @return $this
      */
-    public static function fromConfig(Config $moduleConfig = null): Influx
+    public static function fromConfig(?Config $moduleConfig = null): Influx
     {
         $default = [
             'api_url' => 'http://localhost:8086',
             'api_timeout' => 10,
             'api_bucket' => '',
             'api_org' => '',
-            'api_token' => '',
             'api_max_data_points' => 10000,
             'api_tls_insecure' => false,
             'writer_host_name_template_tag' => 'hostname',
             'writer_service_name_template_tag' => 'service',
+            'api_auth_method' => 'none',
+            'api_auth_tokentype' => 'Token',
+            'api_auth_tokenvalue' => '',
+            'api_auth_username' => '',
+            'api_auth_password' => '',
+            'api_auth_mtls' => false,
+            'api_auth_mtls_cert' => '',
+            'api_auth_mtls_key' => '',
+            'api_auth_mtls_ca' => '',
         ];
 
         // Try to load the configuration
@@ -296,7 +345,15 @@ class Influx
                 $moduleConfig = Config::module('perfdatagraphsinfluxdbv2');
             } catch (Exception $e) {
                 Logger::error('Failed to load Perfdata Graphs InfluxDBv2 module configuration: %s', $e);
-                return $default;
+                return new static(
+                    baseURI: $default['api_url'],
+                    timeout: $default['api_timeout'],
+                    tlsVerify: true,
+                    maxDataPoints: $default['api_max_data_points'],
+                    hostnameTag: $default['writer_host_name_template_tag'],
+                    servicenameTag: $default['writer_service_name_template_tag'],
+                    auth: [],
+                );
             }
         }
 
@@ -305,22 +362,44 @@ class Influx
         $maxDataPoints = (int) $moduleConfig->get('influx', 'api_max_data_points', $default['api_max_data_points']);
         $org = $moduleConfig->get('influx', 'api_org', $default['api_org']);
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
-        $token = $moduleConfig->get('influx', 'api_token', $default['api_token']);
         $hostnameTag = $moduleConfig->get('influx', 'writer_host_name_template_tag', $default['writer_host_name_template_tag']);
         $servicenameTag = $moduleConfig->get('influx', 'writer_service_name_template_tag', $default['writer_service_name_template_tag']);
+        // Auth values
+        $authMethod = $moduleConfig->get('influx', 'api_auth_method', $default['api_auth_method']);
+        $authTokenType = $moduleConfig->get('influx', 'api_auth_tokentype', $default['api_auth_tokentype']);
+        $authTokenValue = $moduleConfig->get('influx', 'api_auth_tokenvalue', $default['api_auth_tokenvalue']);
+        $authUsername = $moduleConfig->get('influx', 'api_auth_username', $default['api_auth_username']);
+        $authPassword = $moduleConfig->get('influx', 'api_auth_password', $default['api_auth_password']);
+        // mTLS values
+        $authMTLS = $moduleConfig->get('influx', 'api_auth_mtls', $default['api_auth_mtls']);
+        $authMTLSCert = $moduleConfig->get('influx', 'api_auth_mtls_cert', $default['api_auth_mtls_cert']);
+        $authMTLSKey = $moduleConfig->get('influx', 'api_auth_mtls_key', $default['api_auth_mtls_key']);
+        $authMTLSCA = $moduleConfig->get('influx', 'api_auth_mtls_ca', $default['api_auth_mtls_ca']);
         // Hint: We use a "skip TLS" logic in the UI, but Guzzle uses "verify TLS"
         $tlsVerify = !(bool) $moduleConfig->get('influx', 'api_tls_insecure', $default['api_tls_insecure']);
+
+        $auth = [
+            'method' => strtolower($authMethod),
+            'tokentype' => $authTokenType,
+            'tokenvalue' => $authTokenValue,
+            'username' => $authUsername,
+            'password' => $authPassword,
+            'mtls' => $authMTLS,
+            'mtls_cert' => $authMTLSCert,
+            'mtls_key' => $authMTLSKey,
+            'mtls_ca' => $authMTLSCA,
+        ];
 
         return new static(
             baseURI: $baseURI,
             org: $org,
             bucket: $bucket,
-            token: $token,
             hostnameTag: $hostnameTag,
             servicenameTag: $servicenameTag,
             timeout: $timeout,
             maxDataPoints: $maxDataPoints,
-            tlsVerify: $tlsVerify
+            tlsVerify: $tlsVerify,
+            auth: $auth,
         );
     }
 }

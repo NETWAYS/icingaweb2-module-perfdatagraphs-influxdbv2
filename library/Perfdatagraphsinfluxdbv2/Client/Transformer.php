@@ -24,7 +24,7 @@ class Transformer
      * @param array $includeMetrics metrics to include
      * @return bool
      */
-    public static function isIncluded($metricname, array $includeMetrics = []): bool
+    public static function isIncluded(string $metricname, array $includeMetrics = []): bool
     {
         // All are included if not set
         if (count($includeMetrics) === 0) {
@@ -45,7 +45,7 @@ class Transformer
      * @param array $excludeMetrics metrics to exlude from the response
      * @return bool
      */
-    public static function isExcluded($metricname, array $excludeMetrics = []): bool
+    public static function isExcluded(string $metricname, array $excludeMetrics = []): bool
     {
         // None are exlucded if not set
         if (count($excludeMetrics) === 0) {
@@ -75,11 +75,6 @@ class Transformer
         array $excludeMetrics = [],
     ): PerfdataResponse {
         $pfr = new PerfdataResponse();
-
-        if (empty($response)) {
-            Logger::warning('Did not receive data in response');
-            return $pfr;
-        }
 
         $stream = new FluxCsvParser($response->getBody(), true);
 
@@ -118,31 +113,12 @@ class Transformer
 
             $series = $dataset->getSeries();
 
-            if (array_key_exists('value', $series)) {
-                $vs = $series['value'];
-                $vs->addValue($record['value'] ?? null);
-            } else {
-                $vs = new PerfdataSeries('value');
-                $vs->addValue($record['value'] ?? null);
-                $dataset->addSeries($vs);
-            }
-
-            if (array_key_exists('warning', $series)) {
-                $ws = $series['warning'];
-                $ws->addValue($record['warn'] ?? null);
-            } else {
-                $ws = new PerfdataSeries('warning');
-                $ws->addValue($record['warn'] ?? null);
-                $dataset->addSeries($ws);
-            }
-
-            if (array_key_exists('critical', $series)) {
-                $cs = $series['critical'];
-                $cs->addValue($record['crit'] ?? null);
-            } else {
-                $cs = new PerfdataSeries('critical');
-                $cs->addValue($record['crit'] ?? null);
-                $dataset->addSeries($cs);
+            foreach (['value' => 'value', 'warning' => 'warn', 'critical' => 'crit'] as $seriesName => $field) {
+                $s = $series[$seriesName] ?? new PerfdataSeries($seriesName);
+                $s->addValue($record[$field] ?? null);
+                if (!isset($series[$seriesName])) {
+                    $dataset->addSeries($s);
+                }
             }
         }
 
