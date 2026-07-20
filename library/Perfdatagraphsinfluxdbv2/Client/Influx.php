@@ -101,11 +101,11 @@ class Influx
         string $hostName,
         string $serviceName,
         string $checkCommand,
-        string $from,
+        int $from,
         bool $isHostCheck
     ): string {
         $q = sprintf('from(bucket: "%s")', $this->bucket);
-        $q .= sprintf('|> range(start: %s)', $from);
+        $q .= sprintf('|> range(start: %d)', $from);
         $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($checkCommand));
         $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, addslashes($hostName));
         if (!$isHostCheck) {
@@ -145,7 +145,7 @@ class Influx
         string $hostName,
         string $serviceName,
         string $checkCommand,
-        string $from,
+        int $from,
         bool $isHostCheck,
     ): Response {
         $counts = $this->getMetricCount(
@@ -235,7 +235,7 @@ class Influx
      * @param string $now current time (used in testing)
      * @return string
      */
-    public static function parseDuration(\DateTime $now, string $duration): string
+    public static function parseDuration(\DateTime $now, string $duration): int
     {
         try {
             $interval = new DateInterval($duration);
@@ -251,7 +251,7 @@ class Influx
         string $hostName,
         string $serviceName,
         string $checkCommand,
-        string $from,
+        int $from,
         bool $isHostCheck,
     ): array {
 
@@ -283,12 +283,16 @@ class Influx
      * getAggregateWindow calculates the size of the aggregate window.
      * If there is no need to aggregate it returns 0.
      *
-     * @param string $from timestamp in seconds
+     * @param int $from timestamp in seconds
      * @param array $count count of datapoints
      * @return int size of the aggregation window in seconds
      */
-    protected function getAggregateWindow(string $from, array $count): int
+    protected function getAggregateWindow(int $from, array $count): int
     {
+        if (empty($count)) {
+            return 0;
+        }
+
         // Since all time series are part of the same check, they have the same count
         $numOfDatapoints = array_pop($count);
 
@@ -298,7 +302,6 @@ class Influx
         }
 
         $now = (new DateTime())->getTimestamp();
-        $from = intval($from);
         // If there are datapoints than allowed we calculate an aggregation window size
         if ($numOfDatapoints > $this->maxDataPoints) {
             return (int) round(($now - $from) / $this->maxDataPoints);
@@ -313,7 +316,7 @@ class Influx
      * @param Config $moduleConfig configuration to load (used for testing)
      * @return $this
      */
-    public static function fromConfig(Config $moduleConfig = null): Influx
+    public static function fromConfig(?Config $moduleConfig = null): Influx
     {
         $default = [
             'api_url' => 'http://localhost:8086',
@@ -346,7 +349,7 @@ class Influx
                     baseURI: $default['api_url'],
                     timeout: $default['api_timeout'],
                     tlsVerify: true,
-                    maxDataPoints: $default['max_data_points'],
+                    maxDataPoints: $default['api_max_data_points'],
                     hostnameTag: $default['writer_host_name_template_tag'],
                     servicenameTag: $default['writer_service_name_template_tag'],
                     auth: [],
@@ -376,7 +379,7 @@ class Influx
         $tlsVerify = !(bool) $moduleConfig->get('influx', 'api_tls_insecure', $default['api_tls_insecure']);
 
         $auth = [
-            'method' => mb_strtolower($authMethod),
+            'method' => strtolower($authMethod),
             'tokentype' => $authTokenType,
             'tokenvalue' => $authTokenValue,
             'username' => $authUsername,
