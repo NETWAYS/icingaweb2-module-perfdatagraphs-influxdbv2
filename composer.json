@@ -1,0 +1,15 @@
+{
+    "require-dev": {
+        "phpbench/phpbench": "^1.7",
+        "overtrue/phplint": "^9.7"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "GuzzleHttp\\Psr7\\": "_libraries/vendor/vendor/guzzlehttp/psr7/src/",
+            "Icinga\\": "_icingaweb2/library/Icinga/",
+            "Icinga\\Module\\Perfdatagraphs\\": "_libraries/perfdatagraphs/library/Perfdatagraphs/",
+            "Icinga\\Module\\Perfdatagraphsinfluxdbv2\\": "library/Perfdatagraphsinfluxdbv2/",
+            "Psr\\Http\\Message\\": "_libraries/vendor/vendor/psr/http-message/src/"
+        }
+    }
+}
