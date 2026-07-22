@@ -42,12 +42,12 @@ class Transformer
      * isExcluded checks if the given metricname is in the given list
      *
      * @param string $metricname name of the metric to find
-     * @param array $excludeMetrics metrics to exlude from the response
+     * @param array $excludeMetrics metrics to exclude from the response
      * @return bool
      */
     public static function isExcluded(string $metricname, array $excludeMetrics = []): bool
     {
-        // None are exlucded if not set
+        // None are exclucded if not set
         if (count($excludeMetrics) === 0) {
             return false;
         }
@@ -66,7 +66,7 @@ class Transformer
      *
      * @param GuzzleHttp\Psr7\Response $response the data to transform
      * @param array $includeMetrics metrics to include in the response
-     * @param array $excludeMetrics metrics to exlude from the response
+     * @param array $excludeMetrics metrics to exclude from the response
      * @return PerfdataResponse
      */
     public static function transform(
@@ -126,9 +126,9 @@ class Transformer
         $ds = $pfr->getDatasets();
         foreach ($ds as $dataset) {
             $series = $dataset->getSeries();
-            foreach ($series as $ser) {
-                if ($ser->isEmpty()) {
-                    $dataset->removeSeries($ser->getName());
+            foreach ($series as $perfdataseries) {
+                if ($perfdataseries->isEmpty()) {
+                    $dataset->removeSeries($perfdataseries->getName());
                 }
             }
         }
