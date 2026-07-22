@@ -21,27 +21,7 @@ Please continue reading in the following sections for a step by step guide.
 ## Fork the Project
 
 [Fork the project](https://help.github.com/articles/fork-a-repo/) to your GitHub account
-and clone the repository:
-
-```
-git clone git@github.com:jdoe/icingaweb2-module-perfdatagraphs.git
-cd icingaweb2-module-perfdatagraphs
-```
-
-Add a new remote `upstream` with this repository as value.
-
-```
-git remote add upstream https://github.com/NETWAYS/icingaweb2-module-perfdatagraphs.git
-```
-
-You can pull updates to your fork's default branch:
-
-```
-git fetch --all
-git pull upstream HEAD
-```
-
-Please continue to learn about [branches](#branches).
+and clone the repository.
 
 ## Branches
 
