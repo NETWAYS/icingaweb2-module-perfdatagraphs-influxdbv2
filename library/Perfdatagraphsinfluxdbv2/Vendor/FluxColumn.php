@@ -27,11 +27,11 @@ namespace Icinga\Module\Perfdatagraphsinfluxdbv2\Vendor;
  */
 class FluxColumn
 {
-    public $index;
-    public $label;
-    public $dataType;
-    public $group;
-    public $defaultValue;
+    public ?int $index = null;
+    public ?string $label = null;
+    public ?string $dataType = null;
+    public ?bool $group = null;
+    public ?string $defaultValue = null;
 
     /**
      * FluxColumn constructor.
@@ -41,8 +41,13 @@ class FluxColumn
      * @param $group bool is group column
      * @param $defaultValue string default empty value
      */
-    public function __construct($index = null, $label = null, $dataType = null, $group = null, $defaultValue = null)
-    {
+    public function __construct(
+        ?int $index = null,
+        ?string $label = null,
+        ?string $dataType = null,
+        ?bool $group = null,
+        ?string $defaultValue = null
+    ) {
         $this->index = $index;
         $this->label = $label;
         $this->dataType = $dataType;

@@ -38,8 +38,8 @@ class FluxCsvParser
     public $tables;
 
     private $response;
-    private $stream;
-    private $responseMode;
+    private bool $stream;
+    private string $responseMode;
     private $resource;
 
     /* @var  $variable int */
@@ -48,11 +48,10 @@ class FluxCsvParser
 
     private bool $startNewTable = false;
 
-    /** @var FluxTable */
-    private $table;
+    private ?FluxTable $table = null;
     private array $groups = [];
 
-    private $parsingStateError;
+    private bool $parsingStateError = false;
 
     public bool $closed = false;
 
@@ -87,23 +86,16 @@ class FluxCsvParser
         return $stream;
     }
 
-    public function parse()
-    {
-        iterator_to_array($this->each());
-
-        return $this;
-    }
-
     public function each()
     {
         try {
             while (($csv = fgetcsv($this->resource, escape: "\\")) !== false) {
-                if (!isset($csv) || (count($csv) == 1 && $csv[0] == null)) {
+                if (!isset($csv) || (count($csv) === 1 && $csv[0] === null)) {
                     continue;
                 }
 
                 //skip empty csv row
-                if ($csv[1] == 'error' && $csv[2] == 'reference') {
+                if ($csv[1] === 'error' && $csv[2] === 'reference') {
                     $this->parsingStateError = true;
                     continue;
                 }
@@ -134,7 +126,7 @@ class FluxCsvParser
         $token = $csv[0];
         # start new table
         if ((in_array($token, self::ANNOTATIONS) && !$this->startNewTable)
-            || ($this->responseMode == "only_names" && is_null($this->table))) {
+            || ($this->responseMode === "only_names" && is_null($this->table))) {
             # Return already parsed DataFrame
             $this->startNewTable = true;
             $this->table = new FluxTable();
@@ -146,15 +138,15 @@ class FluxCsvParser
 
             $this->tableIndex += 1;
             $this->tableId = -1;
-        } elseif ($this->table == null) {
+        } elseif ($this->table === null) {
             throw new RuntimeException('Unable to parse CSV response. FluxTable definition was not found.');
         }
 
-        if (self::ANNOTATION_DATATYPE == $token) {
+        if (self::ANNOTATION_DATATYPE === $token) {
             $this->addDataTypes($this->table, $csv);
-        } elseif (self::ANNOTATION_GROUP == $token) {
+        } elseif (self::ANNOTATION_GROUP === $token) {
             $this->groups = $csv;
-        } elseif (self::ANNOTATION_DEFAULT == $token) {
+        } elseif (self::ANNOTATION_DEFAULT === $token) {
             $this->addDefaultEmptyValues($this->table, $csv);
         } else {
             return $this->parseValues($csv);
@@ -177,11 +169,11 @@ class FluxCsvParser
 
     private function addDataTypes(FluxTable $table, array $data_types)
     {
-        for ($i = 1; $i < sizeof($data_types); ++$i) {
+        for ($i = 1; $i < count($data_types); ++$i) {
             $columnDef = new FluxColumn();
             $columnDef->index = $i - 1;
             $columnDef->dataType = $data_types[$i];
-            array_push($table->columns, $columnDef);
+            $table->columns[] = $columnDef;
         }
     }
 
@@ -189,9 +181,10 @@ class FluxCsvParser
     {
         $i = 1;
         foreach ($table->columns as &$column) {
-            $column->group = $csv[$i] == 'true';
+            $column->group = $csv[$i] === 'true';
             $i++;
         }
+        unset($column);
     }
 
     private function addDefaultEmptyValues(FluxTable $table, $defaultValues)
@@ -201,6 +194,7 @@ class FluxCsvParser
             $column->defaultValue = $defaultValues[$i];
             $i++;
         }
+        unset($column);
     }
 
     private function addColumnNamesAndTags(FluxTable $table, array $csv)
@@ -220,9 +214,9 @@ class FluxCsvParser
         }
 
         if (count($duplicates) > 0) {
+            // "The response contains columns with duplicated names: {$duplicatesStr}\n";
+            // "You should use the 'FluxRecord.row' to access your data instead of 'FluxRecord.values'.";
             $duplicatesStr = implode(", ", $duplicates);
-            // print "The response contains columns with duplicated names: {$duplicatesStr}\n";
-            // print "You should use the 'FluxRecord.row' to access your data instead of 'FluxRecord.values'.";
         }
     }
 
@@ -231,7 +225,7 @@ class FluxCsvParser
     {
         # parse column names
         if ($this->startNewTable) {
-            if ($this->responseMode == 'only_names' && empty($this->table->columns)) {
+            if ($this->responseMode === 'only_names' && empty($this->table->columns)) {
                 $this->addDataTypes($this->table, array_fill(0, sizeof($csv), 'string'));
                 $this->groups = array_fill(0, sizeof($csv), 'false');
             }
@@ -241,8 +235,8 @@ class FluxCsvParser
             return null;
         }
 
-        $currentId = (int)$csv[2];
-        if ($this->tableId == -1) {
+        $currentId = intval($csv[2]);
+        if ($this->tableId === -1) {
             $this->tableId = $currentId;
         }
 
@@ -251,9 +245,11 @@ class FluxCsvParser
             $this->fluxColumns = $this->table->columns;
             $this->table = new FluxTable();
 
-            foreach ($this->fluxColumns as &$column) {
-                array_push($this->table->columns, $column);
-            }
+            // foreach ($this->fluxColumns as &$column) {
+            //     $this->table->columns[] = $column;
+            // }
+            // unset($column)
+            $this->table->columns = $this->fluxColumns;
 
             if (!$this->stream) {
                 $this->tables[$this->tableIndex] = $this->table;
@@ -269,7 +265,7 @@ class FluxCsvParser
             return $fluxRecord;
         } else {
             $fluxTable = $this->tables[$this->tableIndex - 1];
-            array_push($fluxTable->records, $fluxRecord);
+            $fluxTable->records[] = $fluxRecord;
         }
 
         return null;
@@ -277,7 +273,7 @@ class FluxCsvParser
 
     private function toValue($strVal, FluxColumn $column)
     {
-        if ($strVal == null || $strVal == '') {
+        if ($strVal === null || $strVal === '') {
             $defaultValue = $column->defaultValue;
             if (empty($defaultValue)) {
                 return null;
@@ -285,33 +281,33 @@ class FluxCsvParser
             return $this->toValue($defaultValue, $column);
         }
 
-        if ('string' == $column->dataType) {
+        if ('string' === $column->dataType) {
             return $strVal;
         }
 
-        if ('boolean' == $column->dataType) {
-            return "true" == $strVal;
+        if ('boolean' === $column->dataType) {
+            return "true" === $strVal;
         }
 
-        if ('unsignedLong' == $column->dataType || 'long' == $column->dataType) {
+        if ('unsignedLong' === $column->dataType || 'long' === $column->dataType) {
             return intval($strVal);
         }
 
-        if ('double' == $column->dataType) {
-            if ($strVal == '+Inf') {
+        if ('double' === $column->dataType) {
+            if ($strVal === '+Inf') {
                 return INF;
             }
-            if ($strVal == '-Inf') {
+            if ($strVal === '-Inf') {
                 return -INF;
             }
             return (float)$strVal;
         }
 
-        if ('base64Binary' == $column->dataType) {
+        if ('base64Binary' === $column->dataType) {
             return base64_decode($strVal);
         }
 
-        if ('dateTime:RFC3339' == $column->dataType || 'dateTime:RFC3339Nano' == $column->dataType) {
+        if ('dateTime:RFC3339' === $column->dataType || 'dateTime:RFC3339Nano' === $column->dataType) {
             return $strVal;
         }
 
