@@ -43,18 +43,18 @@ class FluxCsvParser
     private $resource;
 
     /* @var  $variable int */
-    private $tableIndex = 0;
-    private $tableId;
+    private int $tableIndex = 0;
+    private int $tableId;
 
-    private $startNewTable;
+    private bool $startNewTable = false;
 
     /** @var FluxTable */
     private $table;
-    private $groups = [];
+    private array $groups = [];
 
     private $parsingStateError;
 
-    public $closed;
+    public bool $closed = false;
 
     /** @var FluxColumn[] */
     private $fluxColumns;
@@ -221,8 +221,8 @@ class FluxCsvParser
 
         if (count($duplicates) > 0) {
             $duplicatesStr = implode(", ", $duplicates);
-            print "The response contains columns with duplicated names: {$duplicatesStr}\n";
-            print "You should use the 'FluxRecord.row' to access your data instead of 'FluxRecord.values'.";
+            // print "The response contains columns with duplicated names: {$duplicatesStr}\n";
+            // print "You should use the 'FluxRecord.row' to access your data instead of 'FluxRecord.values'.";
         }
     }
 
