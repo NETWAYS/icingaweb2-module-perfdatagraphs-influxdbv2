@@ -177,6 +177,7 @@ class Influx
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
 
+        // Note, query should not contain any auth headers, getAuth will override them
         $query = array_merge_recursive($query, $this->getAuth());
 
         Logger::debug('Calling query API at %s with query: %s', $url, $query);
@@ -205,6 +206,7 @@ class Influx
 
         $url = $this->URL . $this::BUCKET_ENDPOINT;
 
+        // Note, query should not contain any auth headers, getAuth will override them
         $query = array_merge_recursive($query, $this->getAuth());
 
         try {
@@ -263,12 +265,13 @@ class Influx
 
         $url = $this->URL . $this::QUERY_ENDPOINT;
 
+        // Note, query should not contain any auth headers, getAuth will override them
         $query = array_merge_recursive($query, $this->getAuth());
 
         Logger::debug('Calling query API at %s with count query: %s', $url, $query);
 
         $response = $this->client->request('POST', $url, $query);
-        $stream = new FluxCsvParser($response->getBody(), true);
+        $stream = new FluxCsvParser(response: $response->getBody(), stream: true);
 
         $metricStats = [];
         foreach ($stream->each() as $record) {

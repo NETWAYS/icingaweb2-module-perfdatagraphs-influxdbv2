@@ -31,7 +31,7 @@ use RuntimeException;
  */
 class FluxRecord implements ArrayAccess
 {
-    public $table;
+    public int $table;
     public $values;
     public $row;
 
@@ -40,7 +40,7 @@ class FluxRecord implements ArrayAccess
      * @param $table int table index
      * @param $values array array with record values, key is the column name
      */
-    public function __construct($table, $values = null, $row = null)
+    public function __construct(int $table, $values = null, $row = null)
     {
         $this->table = $table;
         $this->values = $values;
@@ -108,7 +108,7 @@ class FluxRecord implements ArrayAccess
             return $this->values[$column];
         }
 
-        $array_keys = join(", ", array_keys($this->values));
+        $array_keys = implode(", ", array_keys($this->values));
 
         throw new RuntimeException("Record doesn't contain column named '$column'. Columns: '$array_keys'.");
     }
@@ -132,8 +132,7 @@ class FluxRecord implements ArrayAccess
         unset($this->values[$offset]);
     }
 
-    #[\ReturnTypeWillChange]
-    public function offsetGet($offset)
+    public function offsetGet($offset): mixed
     {
         return $this->values[$offset] ?? null;
     }
