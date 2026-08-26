@@ -110,12 +110,7 @@ class Influx
         int $from,
         bool $isHostCheck
     ): string {
-        // The value used for the InfluxDB _measurement depends on how the Icinga 2
-        // Influxdb2Writer host_template/service_template is configured. The Icinga 2
-        // documentation example uses "measurement = check_command", but writers that use
-        // e.g. "measurement = $host.name$" (a common pattern when many services share a
-        // generic check_command such as check_nrpe or check_nwc_health) need a different
-        // source here.
+        // Which value is used as _measurement depends on the Influxdb2Writer schema.
         $measurementValue = match ($this->measurementSource) {
             'hostname' => $hostName,
             'static'   => $this->measurementStaticValue,
@@ -189,9 +184,7 @@ class Influx
         // Pivot just to that we have less work transforming the data later
         $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
         $q .= '|> sort(columns: ["_time"])';
-        // Normalize the configured hostname/servicename tag columns to the fixed
-        // "host"/"service" names expected downstream, since $this->hostnameTag and
-        // $this->servicenameTag are user-configurable and not necessarily "host"/"service".
+        // Rename the configured hostname/servicename tags to the fixed "host"/"service" columns
         if ($this->hostnameTag !== 'host') {
             $q .= sprintf('|> rename(columns: {"%s": "host"})', addslashes($this->hostnameTag));
         }
@@ -398,16 +391,8 @@ class Influx
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $hostnameTag = $moduleConfig->get('influx', 'writer_host_name_template_tag', $default['writer_host_name_template_tag']);
         $servicenameTag = $moduleConfig->get('influx', 'writer_service_name_template_tag', $default['writer_service_name_template_tag']);
-        $measurementSource = (string) $moduleConfig->get(
-            'influx',
-            'writer_measurement_source',
-            $default['writer_measurement_source']
-        );
-        $measurementStaticValue = (string) $moduleConfig->get(
-            'influx',
-            'writer_measurement_static_value',
-            $default['writer_measurement_static_value']
-        );
+        $measurementSource = (string) $moduleConfig->get('influx', 'writer_measurement_source', $default['writer_measurement_source']);
+        $measurementStaticValue = (string) $moduleConfig->get('influx', 'writer_measurement_static_value', $default['writer_measurement_static_value']);
         // Auth values
         $authMethod = $moduleConfig->get('influx', 'api_auth_method', $default['api_auth_method']);
         $authTokenType = $moduleConfig->get('influx', 'api_auth_tokentype', $default['api_auth_tokentype']);
