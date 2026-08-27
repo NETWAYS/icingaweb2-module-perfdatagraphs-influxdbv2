@@ -31,6 +31,8 @@ class Influx
     protected array $auth;
     protected string $hostnameTag;
     protected string $servicenameTag;
+    protected string $measurementSource;
+    protected string $measurementStatic;
     protected int $maxDataPoints;
 
     public function __construct(
@@ -39,6 +41,8 @@ class Influx
         string $bucket,
         string $hostnameTag,
         string $servicenameTag,
+        string $measurementSource = 'checkcommand',
+        ?string $measurementStatic = '',
         int $timeout = 10,
         int $maxDataPoints = 10000,
         bool $tlsVerify = true,
@@ -57,6 +61,8 @@ class Influx
         $this->auth = $auth;
         $this->hostnameTag = $hostnameTag;
         $this->servicenameTag = $servicenameTag;
+        $this->measurementSource = $measurementSource;
+        $this->measurementStatic = $measurementStatic ?? '';
     }
 
     protected function getAuth(): array
@@ -104,9 +110,16 @@ class Influx
         int $from,
         bool $isHostCheck
     ): string {
+        // Which value is used as _measurement depends on the Influxdb2Writer schema.
+        $measurementValue = match ($this->measurementSource) {
+            'hostname' => $hostName,
+            'static'   => $this->measurementStatic,
+            default    => $checkCommand,
+        };
+
         $q = sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %d)', $from);
-        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($checkCommand));
+        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($measurementValue));
         $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, addslashes($hostName));
         if (!$isHostCheck) {
             $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, addslashes($serviceName));
@@ -171,6 +184,13 @@ class Influx
         // Pivot just to that we have less work transforming the data later
         $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
         $q .= '|> sort(columns: ["_time"])';
+        // Rename the configured hostname/servicename tags to the fixed "host"/"service" columns
+        if ($this->hostnameTag !== 'host') {
+            $q .= sprintf('|> rename(columns: {"%s": "host"})', addslashes($this->hostnameTag));
+        }
+        if ($this->servicenameTag !== 'service') {
+            $q .= sprintf('|> rename(columns: {"%s": "service"})', addslashes($this->servicenameTag));
+        }
         $q .= '|> keep(columns: ["_time", "value", "warn", "crit", "unit", "host", "service", "metric"])';
 
         $query = $this->generateBaseRequest($q);
@@ -330,6 +350,8 @@ class Influx
             'api_tls_insecure' => false,
             'writer_host_name_template_tag' => 'hostname',
             'writer_service_name_template_tag' => 'service',
+            'writer_measurement_source' => 'checkcommand',
+            'writer_measurement_static_value' => '',
             'api_auth_method' => 'none',
             'api_auth_tokentype' => 'Token',
             'api_auth_tokenvalue' => '',
@@ -355,6 +377,8 @@ class Influx
                     maxDataPoints: $default['api_max_data_points'],
                     hostnameTag: $default['writer_host_name_template_tag'],
                     servicenameTag: $default['writer_service_name_template_tag'],
+                    measurementSource: $default['writer_measurement_source'],
+                    measurementStatic: $default['writer_measurement_static_value'],
                     auth: [],
                 );
             }
@@ -367,6 +391,8 @@ class Influx
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $hostnameTag = $moduleConfig->get('influx', 'writer_host_name_template_tag', $default['writer_host_name_template_tag']);
         $servicenameTag = $moduleConfig->get('influx', 'writer_service_name_template_tag', $default['writer_service_name_template_tag']);
+        $measurementSource = (string) $moduleConfig->get('influx', 'writer_measurement_source', $default['writer_measurement_source']);
+        $measurementStatic = (string) $moduleConfig->get('influx', 'writer_measurement_static_value', $default['writer_measurement_static_value']);
         // Auth values
         $authMethod = $moduleConfig->get('influx', 'api_auth_method', $default['api_auth_method']);
         $authTokenType = $moduleConfig->get('influx', 'api_auth_tokentype', $default['api_auth_tokentype']);
@@ -399,6 +425,8 @@ class Influx
             bucket: $bucket,
             hostnameTag: $hostnameTag,
             servicenameTag: $servicenameTag,
+            measurementSource: $measurementSource,
+            measurementStatic: $measurementStatic,
             timeout: $timeout,
             maxDataPoints: $maxDataPoints,
             tlsVerify: $tlsVerify,

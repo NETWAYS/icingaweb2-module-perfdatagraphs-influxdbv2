@@ -149,6 +149,41 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
                 'placeholder' => 'service',
             ]
         );
+
+        $this->addElement(
+            'select',
+            'influx_writer_measurement_source',
+            [
+                'label' => t('Measurement source'),
+                'description' => t(
+                    'Which value is used as the InfluxDB _measurement when building queries.'
+                        . ' Must match how measurement is set in the Icinga 2 Influxdb2Writer'
+                        . ' (host_template/service_template).'
+                ),
+                'multiOptions' => [
+                    'checkcommand' => t('check_command (Icinga 2 documentation default)'),
+                    'hostname'     => t('Host name'),
+                    'static'       => t('Static value'),
+                ],
+                'value' => 'checkcommand',
+                'class' => 'autosubmit',
+            ]
+        );
+
+        if (isset($formData['influx_writer_measurement_source']) && $formData['influx_writer_measurement_source'] === 'static') {
+            $this->addElement(
+                'text',
+                'influx_writer_measurement_static_value',
+                [
+                    'label' => t('Static measurement value'),
+                    'description' => t(
+                        'Fixed value used for _measurement on every query.'
+                            . ' Only used when Measurement source is set to "Static value".'
+                    ),
+                    'required' => true,
+                ]
+            );
+        }
     }
 
     public function addSubmitButton()
@@ -250,6 +285,8 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         $maxDataPoints = (int) $form->getValue('influx_api_max_data_points', 10000);
         $hostnameTag = $form->getValue('influx_writer_host_name_template_tag', 'hostname');
         $servicenameTag = $form->getValue('influx_writer_service_name_template_tag', 'service');
+        $measurementSource = $form->getValue('influx_writer_measurement_source', 'checkcommand');
+        $measurementStatic = (string) ($form->getValue('influx_writer_measurement_static_value', ''));
 
         $auth = [
             'method' => mb_strtolower($authMethod),
@@ -270,6 +307,8 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
                 bucket: $bucket,
                 hostnameTag: $hostnameTag,
                 servicenameTag: $servicenameTag,
+                measurementSource: $measurementSource,
+                measurementStatic: $measurementStatic,
                 timeout: $timeout,
                 maxDataPoints: $maxDataPoints,
                 tlsVerify: $tlsVerify,
