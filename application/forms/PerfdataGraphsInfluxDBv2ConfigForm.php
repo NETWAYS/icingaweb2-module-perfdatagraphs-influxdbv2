@@ -170,17 +170,14 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             ]
         );
 
-        if (
-            isset($formData['influx_writer_measurement_source'])
-            && $formData['influx_writer_measurement_source'] === 'static'
-        ) {
+        if (isset($formData['influx_writer_measurement_source']) && $formData['influx_writer_measurement_source'] === 'static') {
             $this->addElement(
                 'text',
                 'influx_writer_measurement_static_value',
                 [
                     'label' => t('Static measurement value'),
                     'description' => t(
-                        'Fixed value used for _measurement on every query, e.g. "icinga".'
+                        'Fixed value used for _measurement on every query.'
                             . ' Only used when Measurement source is set to "Static value".'
                     ),
                     'required' => true,
@@ -289,7 +286,7 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         $hostnameTag = $form->getValue('influx_writer_host_name_template_tag', 'hostname');
         $servicenameTag = $form->getValue('influx_writer_service_name_template_tag', 'service');
         $measurementSource = $form->getValue('influx_writer_measurement_source', 'checkcommand');
-        $measurementStaticValue = (string) ($form->getValue('influx_writer_measurement_static_value', ''));
+        $measurementStatic = (string) ($form->getValue('influx_writer_measurement_static_value', ''));
 
         $auth = [
             'method' => mb_strtolower($authMethod),
@@ -311,7 +308,7 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
                 hostnameTag: $hostnameTag,
                 servicenameTag: $servicenameTag,
                 measurementSource: $measurementSource,
-                measurementStaticValue: $measurementStaticValue,
+                measurementStatic: $measurementStatic,
                 timeout: $timeout,
                 maxDataPoints: $maxDataPoints,
                 tlsVerify: $tlsVerify,
