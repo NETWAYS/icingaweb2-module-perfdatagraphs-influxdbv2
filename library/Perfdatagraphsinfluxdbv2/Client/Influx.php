@@ -4,8 +4,13 @@ namespace Icinga\Module\Perfdatagraphsinfluxdbv2\Client;
 
 use Icinga\Module\Perfdatagraphsinfluxdbv2\Vendor\FluxCsvParser;
 
+use Icinga\Module\Perfdatagraphs\Icingadb\IcingaObjectHelper as IcinaDBCVH;
+use Icinga\Module\Perfdatagraphs\Ido\IcingaObjectHelper as IdoCVH;
+use Icinga\Module\Perfdatagraphs\ProvidedHook\Icingadb\IcingadbSupport;
+
 use Icinga\Application\Config;
 use Icinga\Application\Logger;
+use Icinga\Application\Modules\Module;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Response;
@@ -31,6 +36,8 @@ class Influx
     protected array $auth;
     protected string $hostnameTag;
     protected string $servicenameTag;
+    protected string $servicenameMeasurement;
+    protected string $hostnameMeasurement;
     protected int $maxDataPoints;
 
     public function __construct(
@@ -39,6 +46,8 @@ class Influx
         string $bucket,
         string $hostnameTag,
         string $servicenameTag,
+        string $servicenameMeasurement,
+        string $hostnameMeasurement,
         int $timeout = 10,
         int $maxDataPoints = 10000,
         bool $tlsVerify = true,
@@ -57,6 +66,8 @@ class Influx
         $this->auth = $auth;
         $this->hostnameTag = $hostnameTag;
         $this->servicenameTag = $servicenameTag;
+        $this->servicenameMeasurement = $servicenameMeasurement;
+        $this->hostnameMeasurement = $hostnameMeasurement;
     }
 
     protected function getAuth(): array
@@ -97,6 +108,50 @@ class Influx
         return $authOptions;
     }
 
+   /**
+     * parseTemplate resolves the measurement macro for the query
+     *
+     * @param string $hostName host name for the performance data query
+     * @param string $serviceName service name for the performance data query
+     * @param string $checkCommand checkcommand name for the performance data query
+     * @param bool $isHostCheck is this a host check or not
+     *
+     * @return string
+     */
+    public function parseTemplate(string $hostName, string $serviceName, string $checkCommand, bool $isHostCheck): string
+    {
+        if (Module::exists('icingadb') && IcingadbSupport::useIcingaDbAsBackend()) {
+            Logger::debug('Used IcingaDB as database backend');
+            $cvh = new IcinaDBCVH();
+        } else {
+            Logger::debug('Used IDO as database backend');
+            $cvh = new IdoCVH();
+        }
+
+        // Get the object so that we expand macros
+        $object = $cvh->getObjectFromString($hostName, $serviceName, $isHostCheck);
+
+        if ($isHostCheck) {
+            $template = str_replace(
+                ['$host.name$', '$host.check_command$'],
+                [$hostName, $checkCommand],
+                $this->hostnameMeasurement
+            );
+
+            $template = $cvh->expandMacros($template, $object);
+        } else {
+            $template = str_replace(
+                ['$host.name$', '$service.name$', '$service.check_command$'],
+                [$hostName, $serviceName, $checkCommand],
+                $this->servicenameMeasurement
+            );
+
+            $template = $cvh->expandMacros($template, $object);
+        }
+
+        return $template;
+    }
+
     protected function generateBaseQuery(
         string $hostName,
         string $serviceName,
@@ -104,9 +159,11 @@ class Influx
         int $from,
         bool $isHostCheck
     ): string {
+        $measurement = $this->parseTemplate($hostName, $serviceName, $checkCommand, $isHostCheck);
+
         $q = sprintf('from(bucket: "%s")', $this->bucket);
         $q .= sprintf('|> range(start: %d)', $from);
-        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($checkCommand));
+        $q .= sprintf('|> filter(fn: (r) => r._measurement == "%s")', addslashes($measurement));
         $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->hostnameTag, addslashes($hostName));
         if (!$isHostCheck) {
             $q .= sprintf('|> filter(fn: (r) => r["%s"] == "%s")', $this->servicenameTag, addslashes($serviceName));
@@ -337,6 +394,8 @@ class Influx
             'api_tls_insecure' => false,
             'writer_host_name_template_tag' => 'hostname',
             'writer_service_name_template_tag' => 'service',
+            'writer_host_template_measurement' => '$host.check_command$',
+            'writer_service_template_measurement' => '$service.check_command$',
             'api_auth_method' => 'none',
             'api_auth_tokentype' => 'Token',
             'api_auth_tokenvalue' => '',
@@ -374,6 +433,16 @@ class Influx
         $bucket = $moduleConfig->get('influx', 'api_bucket', $default['api_bucket']);
         $hostnameTag = $moduleConfig->get('influx', 'writer_host_name_template_tag', $default['writer_host_name_template_tag']);
         $servicenameTag = $moduleConfig->get('influx', 'writer_service_name_template_tag', $default['writer_service_name_template_tag']);
+        $hostnameMeasurement = $moduleConfig->get(
+            'influx',
+            'writer_host_template_measurement',
+            $default['writer_host_template_measurement'],
+        );
+        $servicenameMeasurement = $moduleConfig->get(
+            'influx',
+            'writer_service_template_measurement',
+            $default['writer_service_template_measurement'],
+        );
         // Auth values
         $authMethod = $moduleConfig->get('influx', 'api_auth_method', $default['api_auth_method']);
         $authTokenType = $moduleConfig->get('influx', 'api_auth_tokentype', $default['api_auth_tokentype']);
@@ -406,6 +475,8 @@ class Influx
             bucket: $bucket,
             hostnameTag: $hostnameTag,
             servicenameTag: $servicenameTag,
+            hostnameMeasurement: $hostnameMeasurement,
+            servicenameMeasurement: $servicenameMeasurement,
             timeout: $timeout,
             maxDataPoints: $maxDataPoints,
             tlsVerify: $tlsVerify,
