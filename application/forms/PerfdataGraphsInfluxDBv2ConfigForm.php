@@ -135,8 +135,18 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'influx_writer_host_name_template_tag',
             [
                 'label' => t('Host name template tag'),
-                'description' => t('The configured tag name for the "host name" in Icinga 2 Influxdb2Writer'),
+                'description' => t('The configured tag name for the "host name" in Icinga2 Influxdb2Writer'),
                 'placeholder' => 'hostname',
+            ]
+        );
+
+        $this->addElement(
+            'text',
+            'influx_writer_host_template_measurement',
+            [
+                'label' => t('Host template measurement'),
+                'description' => t('The configured measurement template for the "host" in Icinga2 Influxdb2Writer'),
+                'placeholder' => '$host.check_command$',
             ]
         );
 
@@ -145,8 +155,18 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
             'influx_writer_service_name_template_tag',
             [
                 'label' => t('Service name template tag'),
-                'description' => t('The configured tag name for the "service name" in Icinga 2 Influxdb2Writer'),
+                'description' => t('The configured tag name for the "service name" in Icinga2 Influxdb2Writer'),
                 'placeholder' => 'service',
+            ]
+        );
+
+        $this->addElement(
+            'text',
+            'influx_writer_service_template_measurement',
+            [
+                'label' => t('Service template measurement'),
+                'description' => t('The configured measurement template for the "service" in Icinga2 Influxdb2Writer'),
+                'placeholder' => '$service.check_command$',
             ]
         );
     }
@@ -250,7 +270,8 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
         $maxDataPoints = (int) $form->getValue('influx_api_max_data_points', 10000);
         $hostnameTag = $form->getValue('influx_writer_host_name_template_tag', 'hostname');
         $servicenameTag = $form->getValue('influx_writer_service_name_template_tag', 'service');
-
+        $hostnameMeasurement = $form->getValue('influx_writer_host_template_measurement', '$host.check_command$');
+        $servicenameMeasurement = $form->getValue('influx_writer_service_template_measurement', '$service.check_command$');
         $auth = [
             'method' => mb_strtolower($authMethod),
             'tokentype' => $authTokenType,
@@ -270,6 +291,8 @@ class PerfdataGraphsInfluxDBv2ConfigForm extends ConfigForm
                 bucket: $bucket,
                 hostnameTag: $hostnameTag,
                 servicenameTag: $servicenameTag,
+                hostnameMeasurement: $hostnameMeasurement,
+                servicenameMeasurement: $servicenameMeasurement,
                 timeout: $timeout,
                 maxDataPoints: $maxDataPoints,
                 tlsVerify: $tlsVerify,
