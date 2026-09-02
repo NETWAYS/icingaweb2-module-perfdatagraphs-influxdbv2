@@ -171,6 +171,13 @@ class Influx
         // Pivot just to that we have less work transforming the data later
         $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
         $q .= '|> sort(columns: ["_time"])';
+        // Rename the configured hostname/servicename tags to the fixed "host"/"service" columns
+        if ($this->hostnameTag !== 'host') {
+            $q .= sprintf('|> rename(columns: {"%s": "host"})', addslashes($this->hostnameTag));
+        }
+        if ($this->servicenameTag !== 'service') {
+            $q .= sprintf('|> rename(columns: {"%s": "service"})', addslashes($this->servicenameTag));
+        }
         $q .= '|> keep(columns: ["_time", "value", "warn", "crit", "unit", "host", "service", "metric"])';
 
         $query = $this->generateBaseRequest($q);
