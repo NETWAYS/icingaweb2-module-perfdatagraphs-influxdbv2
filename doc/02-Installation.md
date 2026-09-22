@@ -36,6 +36,8 @@ To install this module, follow the setup instructions for the **extras** reposit
 | api_tls_insecure     | Skip the TLS verification                                                               | `false` (unchecked)      |
 | writer_host_name_template_tag    | The configured tag name for the 'host name' in Icinga 2 Influxdb2Writer     | `hostname` |
 | writer_service_name_template_tag | The configured tag name for the 'service name' in Icinga 2 Influxdb2Writer  | `service` |
+| writer_host_name_template_measurement    | The configured measurement template for the 'host' in Icinga2 Influxdb2Writer  | `$host.check_command$` |
+| writer_service_name_template_measurement | The configured measurement template for the 'service' in Icinga2 Influxdb2Writer  | `$service.check_command$` |
 | api_auth_method     | Authentication method to use for the API                                                 | none (none,basic,token) |
 | api_auth_username    | HTTP basic auth username                                                                |   |
 | api_auth_password    | HTTP basic auth password                                                                |   |
