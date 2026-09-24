@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.0
+
+- Add option to configure Host and Service template measurement
+- Fix column names when hostname/servicename tags are configured
+
 ## v1.0.0
 
 - Raise minimum requirements to PHP 8.2
