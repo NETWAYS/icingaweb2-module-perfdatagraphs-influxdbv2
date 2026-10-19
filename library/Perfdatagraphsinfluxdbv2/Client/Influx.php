@@ -214,8 +214,6 @@ class Influx
         );
 
         $q = $this->generateBaseQuery($hostName, $serviceName, $checkCommand, $from, $isHostCheck);
-        // If there are no warn/crit values we still want to set empty values to have consistency
-        $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
 
         // When we have more than the max datapoints, we add the aggregateWindow function to downsample data
         if ($this->maxDataPoints > 0) {
@@ -224,6 +222,9 @@ class Influx
                 $q .= sprintf('|> aggregateWindow(fn: last, every: %ss)', $windowEverySeconds);
             }
         }
+
+        // If there are no warn/crit values we still want to set empty values to have consistency
+        $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
 
         // Pivot just to that we have less work transforming the data later
         $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
