@@ -223,9 +223,6 @@ class Influx
             }
         }
 
-        // If there are no warn/crit values we still want to set empty values to have consistency
-        $q .= '|> map(fn: (r) => ({r with warn: if exists r.warn then r.warn else "", crit: if exists r.crit then r.crit else ""}))';
-
         // Pivot just to that we have less work transforming the data later
         $q .= '|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")';
         $q .= '|> sort(columns: ["_time"])';
