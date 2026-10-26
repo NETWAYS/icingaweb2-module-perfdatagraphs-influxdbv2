@@ -2,6 +2,10 @@
 
 ## v1.1.0
 
+- Improve performance by removing the Flux map() filter
+
+## v1.1.0
+
 - Add option to configure Host and Service template measurement
 - Fix column names when hostname/servicename tags are configured
 
